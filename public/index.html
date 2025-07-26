@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HushHub - Connect Nearby</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Connect anonymously with people nearby">
+    <meta name="theme-color" content="#6366f1">
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- iOS PWA Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="HushHub">
+    
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="screen active">
+        <div class="loading-content">
+            <div class="logo">
+                <h1>🤫 HushHub</h1>
+                <p>Connecting you with nearby people...</p>
+            </div>
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <!-- Nickname Entry Screen -->
+    <div id="nickname-screen" class="screen">
+        <div class="welcome-content">
+            <div class="header">
+                <h1>🤫 HushHub</h1>
+                <p>Enter a nickname to start chatting with people nearby</p>
+            </div>
+            
+            <form id="nickname-form" class="nickname-form">
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        id="nickname-input" 
+                        placeholder="Enter your nickname..." 
+                        maxlength="20"
+                        required
+                    >
+                    <button type="submit" id="join-btn">
+                        Join 🚀
+                    </button>
+                </div>
+                
+                <div class="options">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="anonymous-mode">
+                        <span class="checkmark"></span>
+                        Start in anonymous mode
+                    </label>
+                </div>
+            </form>
+            
+            <div class="features">
+                <div class="feature">
+                    <span class="icon">💬</span>
+                    <span>Chat with nearby users</span>
+                </div>
+                <div class="feature">
+                    <span class="icon">🎮</span>
+                    <span>Join mini-games</span>
+                </div>
+                <div class="feature">
+                    <span class="icon">🧵</span>
+                    <span>Create discussions</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Screen -->
+    <div id="main-screen" class="screen">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="user-info">
+                <span id="user-nickname">Anonymous 🐸</span>
+                <button id="toggle-anonymous" class="btn-ghost">
+                    <span id="anonymous-status">👤</span>
+                </button>
+            </div>
+            <div class="location-status">
+                <span id="location-indicator">📍</span>
+                <span id="nearby-count">0 nearby</span>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="chat">
+                💬 Chat
+            </button>
+            <button class="tab-btn" data-tab="threads">
+                🧵 Threads
+            </button>
+            <button class="tab-btn" data-tab="games">
+                🎮 Games
+            </button>
+        </nav>
+
+        <!-- Tab Content -->
+        <main class="tab-content">
+            <!-- Chat Tab -->
+            <div id="chat-tab" class="tab-panel active">
+                <div class="nearby-users">
+                    <h3>Nearby Users</h3>
+                    <div id="users-list" class="users-list">
+                        <div class="empty-state">
+                            <span class="icon">🔍</span>
+                            <p>Looking for nearby users...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Threads Tab -->
+            <div id="threads-tab" class="tab-panel">
+                <div class="threads-header">
+                    <h3>Local Discussions</h3>
+                    <button id="create-thread-btn" class="btn-primary">
+                        ➕ Create
+                    </button>
+                </div>
+                <div id="threads-list" class="threads-list">
+                    <div class="empty-state">
+                        <span class="icon">💭</span>
+                        <p>No discussions yet. Start one!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Games Tab -->
+            <div id="games-tab" class="tab-panel">
+                <div class="games-header">
+                    <h3>Local Games</h3>
+                    <button id="create-game-btn" class="btn-primary">
+                        🎮 Create Game
+                    </button>
+                </div>
+                <div id="games-list" class="games-list">
+                    <div class="empty-state">
+                        <span class="icon">🎲</span>
+                        <p>No games available. Create one!</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Chat Modal -->
+    <div id="chat-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="chat-with">Chat with User</h3>
+                <button id="close-chat" class="btn-ghost">&times;</button>
+            </div>
+            <div id="chat-messages" class="chat-messages"></div>
+            <div class="chat-input">
+                <input type="text" id="message-input" placeholder="Type a message...">
+                <button id="send-btn">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Thread Modal -->
+    <div id="thread-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create Discussion</h3>
+                <button id="close-thread" class="btn-ghost">&times;</button>
+            </div>
+            <form id="thread-form">
+                <input type="text" id="thread-title" placeholder="Discussion title..." required>
+                <textarea id="thread-content" placeholder="What do you want to discuss?" required></textarea>
+                <div class="form-actions">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="thread-anonymous">
+                        <span class="checkmark"></span>
+                        Post anonymously
+                    </label>
+                    <button type="submit" class="btn-primary">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Location Permission Modal -->
+    <div id="location-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📍 Location Required</h3>
+            </div>
+            <div class="modal-body">
+                <p>HushHub needs your location to find nearby users. Your exact location is never shared - only proximity.</p>
+                <div class="modal-actions">
+                    <button id="enable-location" class="btn-primary">Enable Location</button>
+                    <button id="deny-location" class="btn-ghost">Not Now</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/geolocation.js"></script>
+    <script src="/js/chat.js"></script>
+    <script src="/js/games.js"></script>
+</body>
+</html>
