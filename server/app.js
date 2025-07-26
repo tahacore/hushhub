@@ -71,6 +71,21 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 function getNearbyUsers(currentUser, radius = 50) {
     const nearby = [];
     
+    // Adaptive radius based on location accuracy and device type
+    let adaptiveRadius = radius;
+    if (currentUser.location && currentUser.location.accuracy) {
+        // If accuracy is poor (>100m), increase radius significantly
+        if (currentUser.location.accuracy > 100) {
+            adaptiveRadius = Math.max(500, currentUser.location.accuracy * 2); // Desktop/poor GPS
+        } else if (currentUser.location.accuracy > 50) {
+            adaptiveRadius = 200; // Moderate accuracy
+        } else {
+            adaptiveRadius = 50; // Good GPS accuracy (mobile)
+        }
+    }
+    
+    console.log(`Finding nearby users for ${currentUser.nickname} with radius: ${adaptiveRadius}m (accuracy: ${currentUser.location?.accuracy}m)`);
+    
     for (const [userId, user] of activeUsers) {
         if (userId === currentUser.id || !user.location) continue;
         
@@ -81,14 +96,16 @@ function getNearbyUsers(currentUser, radius = 50) {
             user.location.longitude
         );
         
-        if (distance <= radius) {
+        // Use adaptive radius for proximity detection
+        if (distance <= adaptiveRadius) {
             nearby.push({
                 id: user.id,
                 nickname: user.nickname,
                 isAnonymous: user.isAnonymous,
                 avatar: user.avatar,
                 distance: Math.round(distance),
-                lastSeen: user.lastSeen
+                lastSeen: user.lastSeen,
+                deviceType: user.location.accuracy > 100 ? 'desktop' : 'mobile' // Estimate device type
             });
         }
     }
@@ -307,6 +324,40 @@ io.on('connection', (socket) => {
 
         // Notify all thread participants
         io.to(`thread_${data.threadId}`).emit('thread-reply', reply);
+    });
+
+    // Update nickname
+    socket.on('update-nickname', (data) => {
+        const userId = userSessions.get(socket.id);
+        const user = activeUsers.get(userId);
+        
+        if (user && data.nickname) {
+            const newNickname = data.nickname.trim().substring(0, 20); // Limit length
+            user.nickname = newNickname;
+            user.lastSeen = Date.now();
+            
+            console.log(`User ${userId} updated nickname to: ${newNickname}`);
+            
+            // Notify nearby users about the nickname change
+            if (user.location) {
+                const nearbyUsers = getNearbyUsers(user);
+                nearbyUsers.forEach(nearbyUser => {
+                    const nearbySocket = [...userSessions.entries()]
+                        .find(([, id]) => id === nearbyUser.id)?.[0];
+                    
+                    if (nearbySocket) {
+                        const socketInstance = io.sockets.sockets.get(nearbySocket);
+                        if (socketInstance) {
+                            const updatedNearby = getNearbyUsers(activeUsers.get(nearbyUser.id));
+                            socketInstance.emit('nearby-users', updatedNearby);
+                        }
+                    }
+                });
+            }
+            
+            // Send confirmation to user
+            socket.emit('nickname-updated', { nickname: newNickname });
+        }
     });
 
     // Toggle anonymous mode

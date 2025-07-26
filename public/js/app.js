@@ -512,9 +512,17 @@ class HushHubApp {
     }
 
     openChat(userId, userName, userAvatar) {
+        console.log('Opening chat with:', { userId, userName, userAvatar });
+        
         const modal = document.getElementById('chat-modal');
         const chatWith = document.getElementById('chat-with');
         const messagesContainer = document.getElementById('chat-messages');
+        
+        if (!modal || !chatWith || !messagesContainer) {
+            console.error('Chat modal elements not found:', { modal, chatWith, messagesContainer });
+            alert('Chat window error. Please refresh the page.');
+            return;
+        }
         
         chatWith.innerHTML = `
             <div style="display: flex; align-items: center; gap: 10px;">
@@ -530,8 +538,16 @@ class HushHubApp {
         `;
         messagesContainer.dataset.userId = userId;
         
+        console.log('Showing chat modal...');
         this.showModal('chat-modal');
-        document.getElementById('message-input').focus();
+        
+        // Focus on input with delay to ensure modal is visible
+        setTimeout(() => {
+            const messageInput = document.getElementById('message-input');
+            if (messageInput) {
+                messageInput.focus();
+            }
+        }, 300);
     }
 
     sendMessage() {
@@ -603,6 +619,66 @@ class HushHubApp {
         
         container.appendChild(messageEl);
         container.scrollTop = container.scrollHeight;
+    }
+
+    editNickname() {
+        const currentNickname = this.currentUser.nickname || '';
+        const newNickname = prompt('Enter your new nickname:', currentNickname);
+        
+        if (newNickname === null) {
+            return; // User cancelled
+        }
+        
+        const trimmedNickname = newNickname.trim();
+        if (trimmedNickname === '') {
+            alert('Nickname cannot be empty!');
+            return;
+        }
+        
+        if (trimmedNickname.length > 20) {
+            alert('Nickname must be 20 characters or less!');
+            return;
+        }
+        
+        if (trimmedNickname === currentNickname) {
+            return; // No change
+        }
+        
+        // Update locally
+        this.currentUser.nickname = trimmedNickname;
+        this.updateUserDisplay();
+        
+        // Save to localStorage
+        this.saveUserSession();
+        
+        // Update on server if connected
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('update-nickname', { nickname: trimmedNickname });
+        }
+        
+        // Show success message
+        const successDiv = document.createElement('div');
+        successDiv.style.cssText = `
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: #4CAF50; color: white; padding: 10px 20px; border-radius: 8px;
+            z-index: 10000; font-size: 14px; box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        `;
+        successDiv.textContent = `✅ Nickname updated to "${trimmedNickname}"`;
+        document.body.appendChild(successDiv);
+        
+        setTimeout(() => successDiv.remove(), 3000);
+    }
+
+    saveUserSession() {
+        try {
+            localStorage.setItem('hushhub_user', JSON.stringify({
+                nickname: this.currentUser.nickname,
+                isAnonymous: this.currentUser.isAnonymous,
+                avatar: this.currentUser.avatar
+            }));
+        } catch (error) {
+            console.error('Failed to save user session:', error);
+        }
     }
 
     toggleAnonymousMode() {
@@ -692,16 +768,50 @@ class HushHubApp {
     }
 
     joinThread(threadId) {
+        console.log('Joining thread:', threadId);
+        
+        if (!this.socket || !this.socket.connected) {
+            alert('Connection required to join discussions. Please wait...');
+            return;
+        }
+        
+        if (!threadId) {
+            console.error('No thread ID provided');
+            return;
+        }
+        
         this.socket.emit('join-thread', threadId);
+        console.log('Sent join-thread event for:', threadId);
     }
 
     showThreadDetails(thread) {
-        // Create thread detail modal dynamically
-        const threadDetailModal = this.createThreadDetailModal(thread);
-        document.body.appendChild(threadDetailModal);
+        console.log('Showing thread details for:', thread);
         
-        // Show the modal
-        setTimeout(() => threadDetailModal.classList.add('active'), 100);
+        if (!thread || !thread.id) {
+            console.error('Invalid thread data:', thread);
+            alert('Unable to open discussion. Please try again.');
+            return;
+        }
+        
+        // Close any existing thread modals
+        document.querySelectorAll('.thread-detail-modal').forEach(modal => {
+            modal.remove();
+        });
+        
+        try {
+            // Create thread detail modal dynamically
+            const threadDetailModal = this.createThreadDetailModal(thread);
+            document.body.appendChild(threadDetailModal);
+            
+            // Show the modal with a slight delay
+            setTimeout(() => {
+                threadDetailModal.classList.add('active');
+                console.log('Thread detail modal shown');
+            }, 100);
+        } catch (error) {
+            console.error('Error creating thread modal:', error);
+            alert('Failed to open discussion. Please try again.');
+        }
     }
 
     createThreadDetailModal(thread) {
@@ -881,14 +991,36 @@ class HushHubApp {
     }
     
     createQuickPoll() {
+        console.log('Creating quick poll...');
+        
+        // Check if user is connected
+        if (!this.socket || !this.socket.connected) {
+            alert('Please wait for connection to be established.');
+            return;
+        }
+        
+        // Check if user has location
+        if (!this.geolocation || !this.geolocation.currentPosition) {
+            alert('Location is required to create polls. Please enable location access.');
+            return;
+        }
+        
         const question = prompt('What would you like to ask nearby users?');
-        if (!question) return;
+        if (!question || question.trim() === '') {
+            return; // User cancelled or entered empty question
+        }
         
         const options = [];
-        for (let i = 1; i <= 4; i++) {
-            const option = prompt(`Option ${i} (press Cancel when done):`);
-            if (!option) break;
-            options.push(option);
+        let optionCount = 0;
+        
+        // Get poll options
+        while (optionCount < 6) { // Maximum 6 options
+            const option = prompt(`Option ${optionCount + 1} (Click Cancel when done or max 6 options):`);
+            if (!option || option.trim() === '') {
+                break; // User is done adding options
+            }
+            options.push(option.trim());
+            optionCount++;
         }
         
         if (options.length < 2) {
@@ -896,19 +1028,39 @@ class HushHubApp {
             return;
         }
         
-        // Create a thread with poll data for now (simple implementation)
-        const pollContent = `📊 **POLL:** ${question}\n\n${options.map((opt, i) => `${i + 1}. ${opt}`).join('\n')}\n\nReply with your choice number!`;
+        // Create formatted poll content
+        const pollContent = `📊 **POLL:** ${question.trim()}\n\n${options.map((opt, i) => `${i + 1}. ${opt}`).join('\n')}\n\n💭 Reply with your choice number (1-${options.length})!`;
         
-        if (this.socket && this.socket.connected) {
+        console.log('Creating poll thread:', { question, options, pollContent });
+        
+        try {
             this.socket.emit('create-thread', {
-                title: `📊 Poll: ${question}`,
+                title: `📊 Poll: ${question.trim()}`,
                 content: pollContent,
-                isAnonymous: this.currentUser.isAnonymous
+                isAnonymous: this.currentUser.isAnonymous || false
             });
+            
+            // Show success message
+            const successDiv = document.createElement('div');
+            successDiv.style.cssText = `
+                position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+                background: #4CAF50; color: white; padding: 15px 25px; border-radius: 8px;
+                z-index: 10000; font-weight: bold; box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+            `;
+            successDiv.textContent = '📊 Poll created successfully!';
+            document.body.appendChild(successDiv);
+            
+            setTimeout(() => successDiv.remove(), 3000);
+            
+            // Switch to threads tab to see the poll
+            setTimeout(() => {
+                this.switchTab('threads');
+            }, 1000);
+            
+        } catch (error) {
+            console.error('Error creating poll:', error);
+            alert('Failed to create poll. Please try again.');
         }
-        
-        alert('Poll created! It will appear in the Discussions tab.');
-        this.switchTab('threads');
     }
 
     showScreen(screenName) {

@@ -73,26 +73,35 @@ class GeolocationManager {
     // Get current position once (robust settings)
     getCurrentPosition() {
         return new Promise((resolve, reject) => {
+            // Detect if likely desktop/laptop vs mobile
+            const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+            const settings = {
+                enableHighAccuracy: isMobile, // Use high accuracy for mobile devices
+                timeout: isMobile ? 20000 : 45000, // Longer timeout for desktop
+                maximumAge: isMobile ? 2 * 60 * 1000 : 10 * 60 * 1000 // Longer cache for desktop
+            };
+            
+            console.log('Getting location with settings:', settings, 'isMobile:', isMobile);
+            
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     this.currentPosition = {
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude,
                         accuracy: position.coords.accuracy,
-                        timestamp: Date.now()
+                        timestamp: Date.now(),
+                        deviceType: isMobile ? 'mobile' : 'desktop'
                     };
                     
+                    console.log('Location obtained:', this.currentPosition);
                     this.trigger('onLocationUpdate', this.currentPosition);
                     resolve(this.currentPosition);
                 },
                 (error) => {
+                    console.error('Geolocation error:', error);
                     reject(this.formatGeolocationError(error));
                 },
-                {
-                    enableHighAccuracy: false, // Start with less demanding setting
-                    timeout: 30000, // Longer timeout for better success rate
-                    maximumAge: 5 * 60 * 1000 // 5 minutes cache for better UX
-                }
+                settings
             );
         });
     }
