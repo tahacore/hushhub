@@ -29,7 +29,17 @@ const activeGames = new Map();
 
 // Middleware
 app.use(helmet({
-    contentSecurityPolicy: NODE_ENV === 'production' ? undefined : false,
+    contentSecurityPolicy: NODE_ENV === 'production' ? {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+            connectSrc: ["'self'", "ws:", "wss:"],
+            imgSrc: ["'self'", "data:", "blob:"],
+            scriptSrcAttr: ["'none'"]
+        }
+    } : false,
     crossOriginEmbedderPolicy: false
 }));
 app.use(compression());

@@ -96,8 +96,8 @@ class GameManager {
                 <div class="game-creation-form" id="game-creation-form" style="display: none;">
                     <input type="text" id="game-title" placeholder="Game title (optional)">
                     <div class="form-actions">
-                        <button class="btn-ghost" onclick="gameManager.closeGameCreation()">Cancel</button>
-                        <button class="btn-primary" onclick="gameManager.createGame()">Create Game</button>
+                        <button class="btn-ghost close-game-creation">Cancel</button>
+                        <button class="btn-primary create-game-btn">Create Game</button>
                     </div>
                 </div>
             </div>
@@ -119,6 +119,11 @@ class GameManager {
             option.addEventListener('click', () => {
                 this.selectGameType(option.dataset.gameId);
             });
+        });
+        
+        // Create game button listener
+        modal.querySelector('.create-game-btn').addEventListener('click', () => {
+            this.createGame();
         });
         
         return modal;
@@ -184,7 +189,7 @@ class GameManager {
         gamesList.innerHTML = games.map(game => {
             const gameType = this.availableGames.find(g => g.id === game.type);
             return `
-                <div class="game-card" onclick="gameManager.joinGame('${game.id}')">
+                <div class="game-card" data-game-id="${game.id}">
                     <div class="game-card-header">
                         <span class="game-card-icon">${gameType?.icon || '🎮'}</span>
                         <h4>${this.app.escapeHtml(game.title)}</h4>
@@ -309,7 +314,7 @@ class GameManager {
                 </div>
                 <div class="word-input">
                     <input type="text" id="next-word" placeholder="Add your word...">
-                    <button class="btn-primary" onclick="gameManager.submitWord('${game.id}')">Submit</button>
+                    <button class="btn-primary word-submit-btn" data-game-id="${game.id}">Submit</button>
                 </div>
                 <div class="word-history">
                     <h4>Word Chain:</h4>
@@ -330,7 +335,7 @@ class GameManager {
                 </div>
                 <div class="guess-input">
                     <input type="text" id="emoji-guess" placeholder="What's the story?">
-                    <button class="btn-primary" onclick="gameManager.submitGuess('${game.id}')">Guess</button>
+                    <button class="btn-primary guess-submit-btn" data-game-id="${game.id}">Guess</button>
                 </div>
                 <div class="guesses-list" id="guesses-list-${game.id}"></div>
             </div>
@@ -346,7 +351,7 @@ class GameManager {
                 </div>
                 <div class="trivia-options">
                     ${(game.options || ['A', 'B', 'C', 'D']).map((option, index) => `
-                        <button class="trivia-option" onclick="gameManager.submitAnswer('${game.id}', ${index})">
+                        <button class="trivia-option" data-game-id="${game.id}" data-answer-index="${index}">
                             ${option}
                         </button>
                     `).join('')}

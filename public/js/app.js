@@ -77,10 +77,10 @@ class HushHubApp {
                 Tap <strong>Share</strong> → <strong>Add to Home Screen</strong>
             </div>
             <div style="display: flex; gap: 10px; justify-content: center;">
-                <button onclick="app.dismissIOSInstallPrompt()" style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px;">
+                <button class="ios-install-dismiss" style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px;">
                     Maybe Later
                 </button>
-                <button onclick="app.explainIOSInstall()" style="background: white; color: #667eea; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: bold;">
+                <button class="ios-install-explain" style="background: white; color: #667eea; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: bold;">
                     Show Me How
                 </button>
             </div>
@@ -100,6 +100,15 @@ class HushHubApp {
         }
         
         document.body.appendChild(promptDiv);
+        
+        // Add event listeners for the buttons
+        promptDiv.querySelector('.ios-install-dismiss').addEventListener('click', () => {
+            this.dismissIOSInstallPrompt();
+        });
+        
+        promptDiv.querySelector('.ios-install-explain').addEventListener('click', () => {
+            this.explainIOSInstall();
+        });
     }
     
     dismissIOSInstallPrompt() {
@@ -134,13 +143,18 @@ class HushHubApp {
                         ✅ No browser bars
                     </div>
                 </div>
-                <button onclick="app.closeInstallInstructions()" style="background: #007AFF; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold;">
+                <button class="ios-install-close" style="background: #007AFF; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold;">
                     Got it!
                 </button>
             </div>
         `;
         
         document.body.appendChild(instructionsDiv);
+        
+        // Add event listener for the close button
+        instructionsDiv.querySelector('.ios-install-close').addEventListener('click', () => {
+            this.closeInstallInstructions();
+        });
     }
     
     closeInstallInstructions() {
@@ -165,6 +179,13 @@ class HushHubApp {
         // Nickname form
         const nicknameForm = document.getElementById('nickname-form');
         nicknameForm.addEventListener('submit', (e) => this.handleNicknameSubmit(e));
+
+        // Nickname editing
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'user-nickname' || e.target.classList.contains('nickname-editable')) {
+                this.editNickname();
+            }
+        });
 
         // Tab navigation
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -196,6 +217,72 @@ class HushHubApp {
 
         document.getElementById('thread-form').addEventListener('submit', (e) => {
             this.handleThreadSubmit(e);
+        });
+
+        // Games creation button
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'create-game-btn' || e.target.classList.contains('create-poll-btn')) {
+                this.createQuickPoll();
+            }
+        });
+
+        // User card clicks (event delegation)
+        document.addEventListener('click', (e) => {
+            const userCard = e.target.closest('.user-card');
+            if (userCard) {
+                const userId = userCard.dataset.userId;
+                const userName = userCard.dataset.userName;
+                const userAvatar = userCard.dataset.userAvatar;
+                this.openChat(userId, userName, userAvatar);
+            }
+        });
+
+        // Thread card clicks (event delegation)
+        document.addEventListener('click', (e) => {
+            const threadCard = e.target.closest('.thread-card');
+            if (threadCard) {
+                const threadId = threadCard.dataset.threadId;
+                this.joinThread(threadId);
+            }
+        });
+
+        // Thread reply button clicks (event delegation)
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('reply-to-thread-btn')) {
+                const threadId = e.target.dataset.threadId;
+                this.replyToThread(threadId);
+            }
+        });
+
+        // Location retry button clicks (event delegation)
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('location-retry-header')) {
+                this.requestLocationPermission();
+            }
+        });
+
+        // Game card clicks (event delegation)
+        document.addEventListener('click', (e) => {
+            const gameCard = e.target.closest('.game-card');
+            if (gameCard && window.gameManager) {
+                const gameId = gameCard.dataset.gameId;
+                window.gameManager.joinGame(gameId);
+            }
+        });
+
+        // Game action buttons (event delegation)
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('word-submit-btn') && window.gameManager) {
+                const gameId = e.target.dataset.gameId;
+                window.gameManager.submitWord(gameId);
+            } else if (e.target.classList.contains('guess-submit-btn') && window.gameManager) {
+                const gameId = e.target.dataset.gameId;
+                window.gameManager.submitGuess(gameId);
+            } else if (e.target.classList.contains('trivia-option') && window.gameManager) {
+                const gameId = e.target.dataset.gameId;
+                const answerIndex = e.target.dataset.answerIndex;
+                window.gameManager.submitAnswer(gameId, parseInt(answerIndex));
+            }
         });
 
         // Geolocation events
@@ -403,15 +490,25 @@ class HushHubApp {
                 HushHub needs location access to find nearby users. Please allow location when prompted by your browser.
             </p>
             <div style="display: flex; gap: 10px; justify-content: center;">
-                <button onclick="this.parentElement.parentElement.remove(); app.requestLocationPermissionDirect();" style="background: #007AFF; color: white; border: none; padding: 10px 20px; border-radius: 6px;">
+                <button class="location-retry-btn" style="background: #007AFF; color: white; border: none; padding: 10px 20px; border-radius: 6px;">
                     Try Again
                 </button>
-                <button onclick="this.parentElement.parentElement.remove();" style="background: #ccc; color: #333; border: none; padding: 10px 20px; border-radius: 6px;">
+                <button class="location-skip-btn" style="background: #ccc; color: #333; border: none; padding: 10px 20px; border-radius: 6px;">
                     Skip
                 </button>
             </div>
         `;
         document.body.appendChild(errorDiv);
+        
+        // Add event listeners for the buttons
+        errorDiv.querySelector('.location-retry-btn').addEventListener('click', () => {
+            errorDiv.remove();
+            this.requestLocationPermissionDirect();
+        });
+        
+        errorDiv.querySelector('.location-skip-btn').addEventListener('click', () => {
+            errorDiv.remove();
+        });
     }
 
     async requestLocationPermission() {
@@ -498,7 +595,7 @@ class HushHubApp {
         }
 
         usersList.innerHTML = users.map(user => `
-            <div class="user-card" onclick="app.openChat('${user.id}', '${user.nickname || 'Anonymous ' + user.avatar}', '${user.avatar}')">
+            <div class="user-card" data-user-id="${user.id}" data-user-name="${user.nickname || 'Anonymous ' + user.avatar}" data-user-avatar="${user.avatar}">
                 <div class="user-avatar">
                     ${user.avatar}
                     <div class="online-indicator"></div>
@@ -749,7 +846,7 @@ class HushHubApp {
         }
 
         threadsList.innerHTML = threads.map(thread => `
-            <div class="thread-card" onclick="app.joinThread('${thread.id}')">
+            <div class="thread-card" data-thread-id="${thread.id}">
                 <h4>${this.escapeHtml(thread.title)}</h4>
                 <div class="thread-content">${this.escapeHtml(thread.content)}</div>
                 <div class="thread-meta">
@@ -853,7 +950,7 @@ class HushHubApp {
                                 <span class="checkmark"></span>
                                 Reply anonymously
                             </label>
-                            <button class="btn-primary" onclick="app.replyToThread('${thread.id}')">
+                            <button class="btn-primary reply-to-thread-btn" data-thread-id="${thread.id}">
                                 Reply
                             </button>
                         </div>
@@ -968,7 +1065,7 @@ class HushHubApp {
                 <h3 style="margin: 0 0 15px 0; color: #333;">Mini Games</h3>
                 <p style="margin: 0 0 30px 0; color: #666;">Quick games to play with nearby users</p>
                 
-                <button onclick="app.createQuickPoll()" style="
+                <button class="create-poll-btn" style="
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     color: white; border: none; padding: 15px 30px; border-radius: 25px;
                     font-size: 16px; font-weight: bold; margin: 10px;
@@ -1151,7 +1248,7 @@ For Chrome/Firefox: Allow location when prompted.`;
         const headerContent = document.querySelector('.app-header .location-status');
         if (headerContent) {
             headerContent.innerHTML = `
-                <button onclick="app.requestLocationPermission()" style="background: #ff6b6b; color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 12px;">
+                <button class="location-retry-header" style="background: #ff6b6b; color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 12px;">
                     📍 Retry Location
                 </button>
             `;
