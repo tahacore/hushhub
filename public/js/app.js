@@ -276,8 +276,12 @@ class HushHubApp {
 
     async connectToServer() {
         try {
-            // Connect to Socket.IO server
-            this.socket = io();
+            // Connect to Socket.IO server with better configuration
+            this.socket = io({
+                timeout: 20000,
+                transports: ['websocket', 'polling'], // Allow fallback
+                forceNew: true
+            });
             window.socket = this.socket;
             
             this.socket.on('connect', () => {
@@ -285,11 +289,34 @@ class HushHubApp {
                 this.socket.emit('join', this.currentUser);
             });
 
+            this.socket.on('disconnect', (reason) => {
+                console.log('Disconnected from server:', reason);
+                if (reason === 'io server disconnect') {
+                    // Server disconnected, try to reconnect
+                    this.socket.connect();
+                }
+                this.showConnectionStatus(false);
+            });
+
+            this.socket.on('reconnect', () => {
+                console.log('Reconnected to server');
+                this.showConnectionStatus(true);
+                // Re-join with current user
+                if (this.currentUser) {
+                    this.socket.emit('join', this.currentUser);
+                }
+            });
+
+            this.socket.on('connect_error', (error) => {
+                console.error('Connection error:', error);
+                this.showConnectionStatus(false);
+            });
+
             this.socket.on('joined', (data) => {
                 this.currentUser = { ...this.currentUser, ...data.user };
                 window.currentUser = this.currentUser;
                 this.updateUserDisplay();
-                this.requestLocationPermission();
+                this.requestLocationPermissionDirect();
             });
 
             this.socket.on('nearby-users', (users) => {
@@ -341,8 +368,55 @@ class HushHubApp {
         }
     }
 
+    async requestLocationPermissionDirect() {
+        // Simplified direct location request
+        try {
+            console.log('Requesting location permission...');
+            const success = await this.geolocation.initialize();
+            if (success) {
+                console.log('Location permission granted');
+                this.showScreen('main');
+                this.backgroundTracker.startTracking();
+                this.updateLocationStatus(true);
+            } else {
+                console.log('Location permission failed');
+                this.showLocationErrorSimple();
+            }
+        } catch (error) {
+            console.error('Location permission error:', error);
+            this.showLocationErrorSimple();
+        }
+    }
+
+    showLocationErrorSimple() {
+        // Simple error handling - no complex modals
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = `
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            text-align: center; z-index: 10000; max-width: 350px;
+        `;
+        errorDiv.innerHTML = `
+            <div style="font-size: 24px; margin-bottom: 15px;">📍</div>
+            <h3 style="margin: 0 0 15px 0;">Location Required</h3>
+            <p style="margin: 0 0 20px 0; color: #666;">
+                HushHub needs location access to find nearby users. Please allow location when prompted by your browser.
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="this.parentElement.parentElement.remove(); app.requestLocationPermissionDirect();" style="background: #007AFF; color: white; border: none; padding: 10px 20px; border-radius: 6px;">
+                    Try Again
+                </button>
+                <button onclick="this.parentElement.parentElement.remove();" style="background: #ccc; color: #333; border: none; padding: 10px 20px; border-radius: 6px;">
+                    Skip
+                </button>
+            </div>
+        `;
+        document.body.appendChild(errorDiv);
+    }
+
     async requestLocationPermission() {
-        this.showModal('location-modal');
+        // Keep this for compatibility but make it simple
+        return this.requestLocationPermissionDirect();
     }
 
     async enableLocation() {
@@ -424,7 +498,7 @@ class HushHubApp {
         }
 
         usersList.innerHTML = users.map(user => `
-            <div class="user-card" onclick="app.openChat('${user.id}', '${user.nickname || 'Anonymous ' + user.avatar}')">
+            <div class="user-card" onclick="app.openChat('${user.id}', '${user.nickname || 'Anonymous ' + user.avatar}', '${user.avatar}')">
                 <div class="user-avatar">
                     ${user.avatar}
                     <div class="online-indicator"></div>
@@ -437,13 +511,23 @@ class HushHubApp {
         `).join('');
     }
 
-    openChat(userId, userName) {
+    openChat(userId, userName, userAvatar) {
         const modal = document.getElementById('chat-modal');
         const chatWith = document.getElementById('chat-with');
         const messagesContainer = document.getElementById('chat-messages');
         
-        chatWith.textContent = `Chat with ${userName}`;
-        messagesContainer.innerHTML = '';
+        chatWith.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 24px;">${userAvatar}</span>
+                <span>Chat with ${userName}</span>
+            </div>
+        `;
+        messagesContainer.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #666;">
+                <div style="font-size: 48px; margin-bottom: 10px;">${userAvatar}</div>
+                <div>Say hello to ${userName}!</div>
+            </div>
+        `;
         messagesContainer.dataset.userId = userId;
         
         this.showModal('chat-modal');
@@ -485,7 +569,8 @@ class HushHubApp {
             this.addMessageToChat(messagesContainer, {
                 content: message.content,
                 isOwn: false,
-                senderName: message.senderNickname || 'Anonymous ' + message.senderAvatar,
+                senderNickname: message.senderNickname,
+                senderAvatar: message.senderAvatar,
                 timestamp: message.timestamp
             });
         }
@@ -496,6 +581,12 @@ class HushHubApp {
     }
 
     addMessageToChat(container, message) {
+        // Remove welcome message if it exists
+        const welcomeMessage = container.querySelector('div[style*="text-align: center"]');
+        if (welcomeMessage) {
+            welcomeMessage.remove();
+        }
+        
         const messageEl = document.createElement('div');
         messageEl.className = `message ${message.isOwn ? 'own' : 'other'}`;
         
@@ -505,7 +596,7 @@ class HushHubApp {
         });
         
         messageEl.innerHTML = `
-            ${!message.isOwn ? `<div class="sender">${message.senderName}</div>` : ''}
+            ${!message.isOwn ? `<div class="sender">${message.senderNickname || 'Anonymous ' + message.senderAvatar}</div>` : ''}
             <div class="content">${this.escapeHtml(message.content)}</div>
             <div class="time">${time}</div>
         `;
@@ -757,8 +848,67 @@ class HushHubApp {
     }
 
     loadNearbyGames() {
-        // TODO: Implement games loading
-        console.log('Loading nearby games...');
+        // Simple games interface
+        const gamesList = document.getElementById('games-list');
+        if (!gamesList) return;
+        
+        gamesList.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px;">
+                <div style="font-size: 48px; margin-bottom: 20px;">🎮</div>
+                <h3 style="margin: 0 0 15px 0; color: #333;">Mini Games</h3>
+                <p style="margin: 0 0 30px 0; color: #666;">Quick games to play with nearby users</p>
+                
+                <button onclick="app.createQuickPoll()" style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white; border: none; padding: 15px 30px; border-radius: 25px;
+                    font-size: 16px; font-weight: bold; margin: 10px;
+                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+                ">
+                    📊 Create Quick Poll
+                </button>
+                
+                <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px; text-align: left;">
+                    <div style="font-weight: bold; margin-bottom: 10px;">🚀 Coming Soon:</div>
+                    <div style="color: #666; font-size: 14px; line-height: 1.6;">
+                        • 🔤 Word Chain Game<br>
+                        • 🎭 Emoji Guessing<br>
+                        • 🧠 Local Trivia<br>
+                        • 🎯 Quick Challenges
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    createQuickPoll() {
+        const question = prompt('What would you like to ask nearby users?');
+        if (!question) return;
+        
+        const options = [];
+        for (let i = 1; i <= 4; i++) {
+            const option = prompt(`Option ${i} (press Cancel when done):`);
+            if (!option) break;
+            options.push(option);
+        }
+        
+        if (options.length < 2) {
+            alert('You need at least 2 options for a poll!');
+            return;
+        }
+        
+        // Create a thread with poll data for now (simple implementation)
+        const pollContent = `📊 **POLL:** ${question}\n\n${options.map((opt, i) => `${i + 1}. ${opt}`).join('\n')}\n\nReply with your choice number!`;
+        
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('create-thread', {
+                title: `📊 Poll: ${question}`,
+                content: pollContent,
+                isAnonymous: this.currentUser.isAnonymous
+            });
+        }
+        
+        alert('Poll created! It will appear in the Discussions tab.');
+        this.switchTab('threads');
     }
 
     showScreen(screenName) {
@@ -856,8 +1006,35 @@ For Chrome/Firefox: Allow location when prompted.`;
         }
     }
 
+    showConnectionStatus(isConnected) {
+        const indicator = document.getElementById('location-indicator');
+        const nearbyCount = document.getElementById('nearby-count');
+        
+        if (isConnected) {
+            indicator.style.opacity = '1';
+            if (nearbyCount) {
+                nearbyCount.style.opacity = '1';
+            }
+        } else {
+            indicator.style.opacity = '0.5';
+            if (nearbyCount) {
+                nearbyCount.textContent = 'Reconnecting...';
+                nearbyCount.style.opacity = '0.5';
+            }
+        }
+    }
+
     showConnectionError() {
-        alert('Connection to server lost. Please refresh the page.');
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = `
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: #ff6b6b; color: white; padding: 10px 20px; border-radius: 8px;
+            z-index: 10000; font-size: 14px;
+        `;
+        errorDiv.textContent = 'Connection lost. Trying to reconnect...';
+        document.body.appendChild(errorDiv);
+        
+        setTimeout(() => errorDiv.remove(), 5000);
     }
 
     showLocationDeniedMessage() {

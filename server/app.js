@@ -12,7 +12,10 @@ const io = socketIo(server, {
     cors: {
         origin: "*",
         methods: ["GET", "POST"]
-    }
+    },
+    pingTimeout: 60000, // 60 seconds
+    pingInterval: 25000, // 25 seconds
+    transports: ['websocket', 'polling'] // Allow fallback to polling
 });
 
 const PORT = process.env.PORT || 3000;

@@ -26,7 +26,7 @@ class GeolocationManager {
         }
     }
 
-    // Request location permission and start tracking
+    // Initialize and request location permission (simplified)
     async initialize() {
         if (!navigator.geolocation) {
             this.trigger('onLocationError', {
@@ -37,24 +37,12 @@ class GeolocationManager {
         }
 
         try {
-            // Request permission
-            const permission = await this.requestPermission();
-            if (permission !== 'granted') {
-                throw new Error('Location permission denied');
-            }
-
-            // Get initial position
+            // Direct location request with user-friendly settings
             await this.getCurrentPosition();
-            
-            // Start watching position
             this.startWatching();
-            
             return true;
         } catch (error) {
-            this.trigger('onLocationError', {
-                code: error.code || 'UNKNOWN',
-                message: error.message
-            });
+            this.trigger('onLocationError', error);
             return false;
         }
     }
@@ -82,7 +70,7 @@ class GeolocationManager {
         }
     }
 
-    // Get current position once
+    // Get current position once (robust settings)
     getCurrentPosition() {
         return new Promise((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(
@@ -101,9 +89,9 @@ class GeolocationManager {
                     reject(this.formatGeolocationError(error));
                 },
                 {
-                    enableHighAccuracy: true,
-                    timeout: 15000,
-                    maximumAge: 30000
+                    enableHighAccuracy: false, // Start with less demanding setting
+                    timeout: 30000, // Longer timeout for better success rate
+                    maximumAge: 5 * 60 * 1000 // 5 minutes cache for better UX
                 }
             );
         });
