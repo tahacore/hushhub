@@ -7,3 +7,9 @@
   - Creating game sessions
   - Threads/discussions
   - Anonymous local communication
+
+## Design Philosophy
+
+- For all designs, prioritize beauty and uniqueness over cookie-cutter approaches
+- Create webpages that are fully featured and production-worthy
+- Aim to develop visually stunning and functionally comprehensive interfaces
