@@ -21,6 +21,9 @@ class HushHubApp {
         // Register service worker
         await this.registerServiceWorker();
         
+        // Check if should show iOS PWA install prompt
+        this.checkIOSPWAInstall();
+        
         // Initialize geolocation
         this.geolocation = new GeolocationManager();
         this.backgroundTracker = new BackgroundLocationTracker(this.geolocation);
@@ -38,6 +41,115 @@ class HushHubApp {
         }
     }
 
+    checkIOSPWAInstall() {
+        // Check if running on iOS Safari and not already installed as PWA
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isInStandaloneMode = ('standalone' in window.navigator) && window.navigator.standalone;
+        const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome|CriOS|FxiOS/.test(navigator.userAgent);
+        
+        if (isIOS && !isInStandaloneMode && isSafari) {
+            // Check if user already dismissed the install prompt
+            const dismissed = localStorage.getItem('hushhub_ios_install_dismissed');
+            if (!dismissed) {
+                // Show install prompt after a delay
+                setTimeout(() => {
+                    this.showIOSInstallPrompt();
+                }, 3000);
+            }
+        }
+    }
+    
+    showIOSInstallPrompt() {
+        const promptDiv = document.createElement('div');
+        promptDiv.id = 'ios-install-prompt';
+        promptDiv.style.cssText = `
+            position: fixed; bottom: 20px; left: 20px; right: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 15px; border-radius: 12px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 10000;
+            text-align: center; font-size: 14px; animation: slideUp 0.3s ease;
+        `;
+        
+        promptDiv.innerHTML = `
+            <div style="margin-bottom: 8px; font-weight: bold;">📱 Install HushHub</div>
+            <div style="margin-bottom: 12px; opacity: 0.9;">For the best experience, add HushHub to your home screen!</div>
+            <div style="margin-bottom: 10px; font-size: 12px; opacity: 0.8;">
+                Tap <strong>Share</strong> → <strong>Add to Home Screen</strong>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="app.dismissIOSInstallPrompt()" style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px;">
+                    Maybe Later
+                </button>
+                <button onclick="app.explainIOSInstall()" style="background: white; color: #667eea; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: bold;">
+                    Show Me How
+                </button>
+            </div>
+        `;
+        
+        // Add animation CSS
+        if (!document.getElementById('install-prompt-styles')) {
+            const style = document.createElement('style');
+            style.id = 'install-prompt-styles';
+            style.textContent = `
+                @keyframes slideUp {
+                    from { transform: translateY(100%); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        document.body.appendChild(promptDiv);
+    }
+    
+    dismissIOSInstallPrompt() {
+        const promptDiv = document.getElementById('ios-install-prompt');
+        if (promptDiv) {
+            promptDiv.remove();
+        }
+        localStorage.setItem('hushhub_ios_install_dismissed', 'true');
+    }
+    
+    explainIOSInstall() {
+        this.dismissIOSInstallPrompt();
+        
+        const instructionsDiv = document.createElement('div');
+        instructionsDiv.id = 'ios-install-instructions';
+        instructionsDiv.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8); z-index: 10001; 
+            display: flex; align-items: center; justify-content: center; padding: 20px;
+        `;
+        
+        instructionsDiv.innerHTML = `
+            <div style="background: white; border-radius: 12px; padding: 20px; max-width: 350px; text-align: center;">
+                <h3 style="margin: 0 0 15px 0; color: #333;">📱 Install HushHub</h3>
+                <div style="text-align: left; margin: 15px 0; color: #666; line-height: 1.5;">
+                    <div style="margin-bottom: 12px;"><strong>Step 1:</strong> Tap the Share button <span style="display: inline-block; background: #007AFF; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;">⬆️</span> at the bottom of Safari</div>
+                    <div style="margin-bottom: 12px;"><strong>Step 2:</strong> Scroll down and tap "Add to Home Screen" 📱</div>
+                    <div style="margin-bottom: 12px;"><strong>Step 3:</strong> Tap "Add" to install HushHub</div>
+                    <div style="margin-bottom: 12px; padding: 10px; background: #e8f5e8; border-radius: 6px; font-size: 12px;">
+                        ✅ Better location permissions<br>
+                        ✅ Faster loading<br>
+                        ✅ No browser bars
+                    </div>
+                </div>
+                <button onclick="app.closeInstallInstructions()" style="background: #007AFF; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold;">
+                    Got it!
+                </button>
+            </div>
+        `;
+        
+        document.body.appendChild(instructionsDiv);
+    }
+    
+    closeInstallInstructions() {
+        const instructionsDiv = document.getElementById('ios-install-instructions');
+        if (instructionsDiv) {
+            instructionsDiv.remove();
+        }
+    }
+    
     async registerServiceWorker() {
         if ('serviceWorker' in navigator) {
             try {
@@ -236,13 +348,37 @@ class HushHubApp {
     async enableLocation() {
         this.hideModal('location-modal');
         
-        const success = await this.geolocation.initialize();
-        if (success) {
-            this.showScreen('main');
-            this.backgroundTracker.startTracking();
-            this.updateLocationStatus(true);
-        } else {
-            this.showLocationError();
+        // Show loading state
+        this.showLocationLoadingMessage();
+        
+        try {
+            // For iOS Safari, call getCurrentPosition directly on button click
+            // This ensures the call is in direct response to user gesture
+            const position = await new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(
+                    resolve,
+                    reject,
+                    {
+                        enableHighAccuracy: false, // Less demanding for iOS
+                        timeout: 25000, // Longer timeout for iOS Safari
+                        maximumAge: 60000 // Allow cached location for better UX
+                    }
+                );
+            });
+            
+            // If we got position, initialize the full geolocation manager
+            const success = await this.geolocation.initialize();
+            if (success) {
+                this.showScreen('main');
+                this.backgroundTracker.startTracking();
+                this.updateLocationStatus(true);
+                this.hideLocationLoadingMessage();
+            } else {
+                this.showLocationError('Failed to initialize location tracking');
+            }
+        } catch (error) {
+            console.error('Direct location request failed:', error);
+            this.handleLocationPermissionError(error);
         }
     }
 
@@ -658,7 +794,66 @@ class HushHubApp {
     }
 
     showLocationError(message = 'Location access is required for HushHub to work') {
+        this.hideLocationLoadingMessage();
         alert(message);
+    }
+    
+    showLocationLoadingMessage() {
+        // Show a loading indicator for location
+        const loadingDiv = document.createElement('div');
+        loadingDiv.id = 'location-loading';
+        loadingDiv.style.cssText = `
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            text-align: center; z-index: 10000;
+        `;
+        loadingDiv.innerHTML = `
+            <div style="font-size: 18px; margin-bottom: 10px;">📍 Getting your location...</div>
+            <div style="font-size: 14px; color: #666;">This may take a few seconds</div>
+        `;
+        document.body.appendChild(loadingDiv);
+    }
+    
+    hideLocationLoadingMessage() {
+        const loadingDiv = document.getElementById('location-loading');
+        if (loadingDiv) {
+            loadingDiv.remove();
+        }
+    }
+    
+    handleLocationPermissionError(error) {
+        this.hideLocationLoadingMessage();
+        
+        let message = 'Location access is required for HushHub to work.';
+        
+        if (error.code === 1) { // PERMISSION_DENIED
+            message = `Location access was denied. 
+
+For iOS Safari:
+1. Go to Settings → Safari → Location → "Ask" or "Allow"
+2. Or try installing as a PWA: Safari → Share → "Add to Home Screen"
+
+For Chrome/Firefox: Allow location when prompted.`;
+        } else if (error.code === 2) { // POSITION_UNAVAILABLE
+            message = 'Unable to determine your location. Please check your GPS/location services.';
+        } else if (error.code === 3) { // TIMEOUT
+            message = 'Location request timed out. Please try again.';
+        }
+        
+        alert(message);
+        this.showLocationRetryOption();
+    }
+    
+    showLocationRetryOption() {
+        // Show retry button in UI
+        const headerContent = document.querySelector('.app-header .location-status');
+        if (headerContent) {
+            headerContent.innerHTML = `
+                <button onclick="app.requestLocationPermission()" style="background: #ff6b6b; color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 12px;">
+                    📍 Retry Location
+                </button>
+            `;
+        }
     }
 
     showConnectionError() {

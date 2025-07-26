@@ -59,23 +59,25 @@ class GeolocationManager {
         }
     }
 
-    // Request location permission
+    // Request location permission (iOS Safari compatible)
     async requestPermission() {
-        if ('permissions' in navigator) {
-            const result = await navigator.permissions.query({ name: 'geolocation' });
-            return result.state;
-        }
-        
-        // Fallback: try to get position to trigger permission prompt
+        // iOS Safari doesn't support permissions API for geolocation
+        // We need to directly call getCurrentPosition to trigger permission
         try {
             await new Promise((resolve, reject) => {
-                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                    timeout: 10000,
-                    maximumAge: 0
-                });
+                navigator.geolocation.getCurrentPosition(
+                    resolve, 
+                    reject, 
+                    {
+                        enableHighAccuracy: false, // Less demanding for iOS
+                        timeout: 20000, // Longer timeout for iOS
+                        maximumAge: 60000 // Allow cached location
+                    }
+                );
             });
             return 'granted';
         } catch (error) {
+            console.warn('Location permission error:', error);
             return 'denied';
         }
     }
