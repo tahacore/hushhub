@@ -1127,7 +1127,6 @@ io.on('connection', (socket) => {
         
         console.log(`Socket disconnected: ${socket.id} (reason: ${reason})`);
     });
-    });
 
     // Add reconnection handler
     socket.on('reconnect-game', (data) => {
