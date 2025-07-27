@@ -221,7 +221,14 @@ class HushHubApp {
 
         // Games creation button
         document.addEventListener('click', (e) => {
-            if (e.target.id === 'create-game-btn' || e.target.classList.contains('create-poll-btn')) {
+            if (e.target.id === 'create-game-btn') {
+                // Let games.js handle the game creation modal
+                if (window.gameManager) {
+                    window.gameManager.showGameCreationModal();
+                } else {
+                    console.warn('Game manager not initialized yet');
+                }
+            } else if (e.target.classList.contains('create-poll-btn')) {
                 this.createQuickPoll();
             }
         });
@@ -412,11 +419,18 @@ class HushHubApp {
             });
 
             this.socket.on('new-message', (message) => {
+                console.log('Received new message:', message);
                 this.handleIncomingMessage(message);
             });
 
             this.socket.on('message-sent', (data) => {
+                console.log('Message sent confirmation:', data);
                 this.handleMessageSent(data);
+            });
+
+            this.socket.on('message-error', (data) => {
+                console.error('Message error:', data);
+                alert('Failed to send message: ' + data.error);
             });
 
             this.socket.on('anonymous-toggled', (data) => {
@@ -627,13 +641,36 @@ class HushHubApp {
                 <span>Chat with ${userName}</span>
             </div>
         `;
-        messagesContainer.innerHTML = `
-            <div style="text-align: center; padding: 20px; color: #666;">
-                <div style="font-size: 48px; margin-bottom: 10px;">${userAvatar}</div>
-                <div>Say hello to ${userName}!</div>
-            </div>
-        `;
+        
+        // Clear previous messages and load unread messages
+        messagesContainer.innerHTML = '';
         messagesContainer.dataset.userId = userId;
+        
+        // Load any unread messages for this user
+        if (this.unreadMessages && this.unreadMessages.has(userId)) {
+            const unreadMsgs = this.unreadMessages.get(userId);
+            unreadMsgs.forEach(message => {
+                this.addMessageToChat(messagesContainer, {
+                    content: message.content,
+                    isOwn: false,
+                    senderNickname: message.senderNickname,
+                    senderAvatar: message.senderAvatar,
+                    timestamp: message.timestamp
+                });
+            });
+            
+            // Clear unread messages for this user
+            this.unreadMessages.delete(userId);
+            this.updateUnreadIndicators();
+        } else {
+            // Show welcome message if no unread messages
+            messagesContainer.innerHTML = `
+                <div style="text-align: center; padding: 20px; color: #666;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">${userAvatar}</div>
+                    <div>Say hello to ${userName}!</div>
+                </div>
+            `;
+        }
         
         console.log('Showing chat modal...');
         this.showModal('chat-modal');
@@ -653,7 +690,18 @@ class HushHubApp {
         const messagesContainer = document.getElementById('chat-messages');
         const recipientId = messagesContainer.dataset.userId;
         
-        if (!message || !recipientId) return;
+        console.log('Sending message:', { message, recipientId, currentUser: this.currentUser });
+        
+        if (!message || !recipientId) {
+            console.error('Missing message or recipient ID');
+            return;
+        }
+
+        if (!this.socket || !this.socket.connected) {
+            console.error('Socket not connected');
+            alert('Connection lost. Please wait...');
+            return;
+        }
 
         // Add message to UI immediately
         this.addMessageToChat(messagesContainer, {
@@ -663,6 +711,7 @@ class HushHubApp {
         });
 
         // Send to server
+        console.log('Emitting send-message event...');
         this.socket.emit('send-message', {
             recipientId: recipientId,
             message: message,
@@ -673,12 +722,15 @@ class HushHubApp {
     }
 
     handleIncomingMessage(message) {
+        console.log('Processing incoming message:', message);
+        
         // Show notification
-        this.showNotification(`New message from ${message.senderNickname || 'Anonymous ' + message.senderAvatar}`);
+        this.showNotification(`💬 New message from ${message.senderNickname || 'Anonymous ' + message.senderAvatar}`);
         
         // If chat is open with this user, add to chat
         const messagesContainer = document.getElementById('chat-messages');
-        if (messagesContainer.dataset.userId === message.senderId) {
+        if (messagesContainer && messagesContainer.dataset.userId === message.senderId) {
+            console.log('Adding message to open chat');
             this.addMessageToChat(messagesContainer, {
                 content: message.content,
                 isOwn: false,
@@ -686,7 +738,46 @@ class HushHubApp {
                 senderAvatar: message.senderAvatar,
                 timestamp: message.timestamp
             });
+        } else {
+            console.log('Chat not open for this user, showing notification only');
+            // Store unread message for this user
+            this.addUnreadMessage(message.senderId, message);
         }
+    }
+
+    addUnreadMessage(userId, message) {
+        if (!this.unreadMessages) {
+            this.unreadMessages = new Map();
+        }
+        
+        if (!this.unreadMessages.has(userId)) {
+            this.unreadMessages.set(userId, []);
+        }
+        
+        this.unreadMessages.get(userId).push(message);
+        this.updateUnreadIndicators();
+    }
+
+    updateUnreadIndicators() {
+        // Update user cards with unread message indicators
+        document.querySelectorAll('.user-card').forEach(card => {
+            const userId = card.dataset.userId;
+            const unreadCount = this.unreadMessages?.get(userId)?.length || 0;
+            
+            // Remove existing indicator
+            const existingIndicator = card.querySelector('.unread-indicator');
+            if (existingIndicator) {
+                existingIndicator.remove();
+            }
+            
+            // Add new indicator if there are unread messages
+            if (unreadCount > 0) {
+                const indicator = document.createElement('div');
+                indicator.className = 'unread-indicator';
+                indicator.textContent = unreadCount;
+                card.appendChild(indicator);
+            }
+        });
     }
 
     handleMessageSent(data) {
@@ -1184,12 +1275,47 @@ class HushHubApp {
     }
 
     showNotification(message) {
-        // Simple notification - could be enhanced with proper notification API
+        console.log('Showing notification:', message);
+        
+        // Browser notification if permission granted
         if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('HushHub', { body: message });
-        } else {
-            console.log('Notification:', message);
+            new Notification('HushHub', { 
+                body: message,
+                icon: '/favicon.ico',
+                badge: '/favicon.ico'
+            });
+        } else if ('Notification' in window && Notification.permission === 'default') {
+            // Request permission
+            Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    new Notification('HushHub', { 
+                        body: message,
+                        icon: '/favicon.ico',
+                        badge: '/favicon.ico'
+                    });
+                }
+            });
         }
+        
+        // In-app notification
+        this.showInAppNotification(message);
+    }
+
+    showInAppNotification(message) {
+        // Remove existing notifications
+        document.querySelectorAll('.notification').forEach(n => n.remove());
+        
+        const notification = document.createElement('div');
+        notification.className = 'notification success';
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            notification.style.animation = 'slideOutNotification 0.3s ease forwards';
+            setTimeout(() => notification.remove(), 300);
+        }, 5000);
     }
 
     showLocationError(message = 'Location access is required for HushHub to work') {

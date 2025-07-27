@@ -16,69 +16,72 @@
     <meta name="apple-mobile-web-app-title" content="HushHub">
     
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/games.css">
 </head>
 <body>
-    <!-- Loading Screen -->
-    <div id="loading-screen" class="screen active">
-        <div class="loading-content">
-            <div class="logo">
-                <h1>🤫 HushHub</h1>
-                <p>Connecting you with nearby people...</p>
+    <!-- App Container -->
+    <div class="app-container">
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="screen active">
+            <div class="loading-content">
+                <div class="logo">
+                    <h1>🤫 HushHub</h1>
+                    <p>Connecting you with nearby people...</p>
+                </div>
+                <div class="spinner"></div>
             </div>
-            <div class="spinner"></div>
         </div>
-    </div>
 
-    <!-- Nickname Entry Screen -->
-    <div id="nickname-screen" class="screen">
-        <div class="welcome-content">
-            <div class="header">
-                <h1>🤫 HushHub</h1>
-                <p>Enter a nickname to start chatting with people nearby</p>
-            </div>
-            
-            <form id="nickname-form" class="nickname-form">
-                <div class="input-group">
-                    <input 
-                        type="text" 
-                        id="nickname-input" 
-                        placeholder="Enter your nickname..." 
-                        maxlength="20"
-                        required
-                    >
-                    <button type="submit" id="join-btn">
-                        Join 🚀
-                    </button>
+        <!-- Nickname Entry Screen -->
+        <div id="nickname-screen" class="screen">
+            <div class="welcome-content">
+                <div class="header">
+                    <h1>🤫 HushHub</h1>
+                    <p>Enter a nickname to start chatting with people nearby</p>
                 </div>
                 
-                <div class="options">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="anonymous-mode">
-                        <span class="checkmark"></span>
-                        Start in anonymous mode
-                    </label>
-                </div>
-            </form>
-            
-            <div class="features">
-                <div class="feature">
-                    <span class="icon">💬</span>
-                    <span>Chat with nearby users</span>
-                </div>
-                <div class="feature">
-                    <span class="icon">🎮</span>
-                    <span>Join mini-games</span>
-                </div>
-                <div class="feature">
-                    <span class="icon">🧵</span>
-                    <span>Create discussions</span>
+                <form id="nickname-form" class="nickname-form">
+                    <div class="input-group">
+                        <input 
+                            type="text" 
+                            id="nickname-input" 
+                            placeholder="Enter your nickname..." 
+                            maxlength="20"
+                            required
+                        >
+                        <button type="submit" id="join-btn">
+                            Join 🚀
+                        </button>
+                    </div>
+                    
+                    <div class="options">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="anonymous-mode">
+                            <span class="checkmark"></span>
+                            Start in anonymous mode
+                        </label>
+                    </div>
+                </form>
+                
+                <div class="features">
+                    <div class="feature">
+                        <span class="icon">💬</span>
+                        <span>Chat with nearby users</span>
+                    </div>
+                    <div class="feature">
+                        <span class="icon">🎮</span>
+                        <span>Join mini-games</span>
+                    </div>
+                    <div class="feature">
+                        <span class="icon">🧵</span>
+                        <span>Create discussions</span>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Main App Screen -->
-    <div id="main-screen" class="screen">
+        <!-- Main App Screen -->
+        <div id="main-screen" class="screen">
         <!-- Header -->
         <header class="app-header">
             <div class="user-info">
@@ -207,6 +210,7 @@
             </div>
         </div>
     </div>
+</div>
 
     <!-- Scripts -->
     <script src="/socket.io/socket.io.js"></script>

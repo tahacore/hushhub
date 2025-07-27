@@ -5,6 +5,7 @@ const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
+const GameEngine = require('./gameEngine');
 
 const app = express();
 const server = http.createServer(app);
@@ -26,6 +27,9 @@ const activeUsers = new Map();
 const userSessions = new Map();
 const activeThreads = new Map();
 const activeGames = new Map();
+
+// Initialize Game Engine
+const gameEngine = new GameEngine();
 
 // Middleware
 app.use(helmet({
@@ -57,7 +61,7 @@ app.get('/health', (req, res) => {
         status: 'healthy', 
         users: activeUsers.size,
         threads: activeThreads.size,
-        games: activeGames.size,
+        games: gameEngine.getAllActiveSessions().length,
         timestamp: new Date().toISOString()
     });
 });
@@ -205,10 +209,23 @@ io.on('connection', (socket) => {
         const senderId = userSessions.get(socket.id);
         const sender = activeUsers.get(senderId);
         
-        if (!sender) return;
+        console.log('Message received:', { 
+            senderId, 
+            senderNickname: sender?.nickname,
+            recipientId: data.recipientId, 
+            message: data.message 
+        });
+        
+        if (!sender) {
+            console.error('Sender not found:', senderId);
+            return;
+        }
 
         const recipientSocket = [...userSessions.entries()]
             .find(([, id]) => id === data.recipientId)?.[0];
+        
+        console.log('Recipient socket:', recipientSocket);
+        console.log('Active sessions:', Array.from(userSessions.entries()));
         
         if (recipientSocket) {
             const message = {
@@ -221,6 +238,8 @@ io.on('connection', (socket) => {
                 isAnonymous: data.isAnonymous
             };
 
+            console.log('Sending message to recipient:', message);
+            
             // Send to recipient
             io.to(recipientSocket).emit('new-message', message);
             
@@ -228,6 +247,13 @@ io.on('connection', (socket) => {
             socket.emit('message-sent', {
                 messageId: message.id,
                 recipientId: data.recipientId
+            });
+            
+            console.log('Message sent successfully');
+        } else {
+            console.error('Recipient socket not found for recipient ID:', data.recipientId);
+            socket.emit('message-error', {
+                error: 'Recipient not found or offline'
             });
         }
     });
@@ -417,6 +443,351 @@ io.on('connection', (socket) => {
         socket.emit('nearby-threads', nearbyThreads.sort((a, b) => b.createdAt - a.createdAt));
     });
 
+    // ===============================
+    // GAME-RELATED EVENT HANDLERS
+    // ===============================
+
+    // Create new game session
+    socket.on('create-game', (gameConfig) => {
+        const userId = userSessions.get(socket.id);
+        const user = activeUsers.get(userId);
+        
+        if (!user || !user.location) {
+            socket.emit('game-error', { error: 'Location required to create games' });
+            return;
+        }
+
+        try {
+            const gameSession = gameEngine.createGameSession(gameConfig, user);
+            
+            console.log(`Game created: ${gameSession.id} by ${user.nickname}`);
+            
+            // Send confirmation to creator
+            socket.emit('game-created', {
+                gameId: gameSession.id,
+                session: gameSession
+            });
+            
+            // Notify nearby users about new game
+            const nearbyUsers = getNearbyUsers(user);
+            nearbyUsers.forEach(nearbyUser => {
+                const nearbySocket = [...userSessions.entries()]
+                    .find(([, id]) => id === nearbyUser.id)?.[0];
+                
+                if (nearbySocket) {
+                    const socketInstance = io.sockets.sockets.get(nearbySocket);
+                    if (socketInstance) {
+                        socketInstance.emit('new-game-available', {
+                            id: gameSession.id,
+                            type: gameSession.type,
+                            title: gameSession.title,
+                            creator: gameSession.creatorId === nearbyUser.id ? null : {
+                                nickname: user.isAnonymous ? null : user.nickname,
+                                avatar: user.avatar
+                            },
+                            players: gameSession.players.length,
+                            maxPlayers: gameSession.maxPlayers,
+                            status: gameSession.status,
+                            distance: nearbyUser.distance
+                        });
+                    }
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error creating game:', error);
+            socket.emit('game-error', { error: error.message });
+        }
+    });
+
+    // Join existing game session
+    socket.on('join-game', (data) => {
+        const { gameId } = data;
+        const userId = userSessions.get(socket.id);
+        const user = activeUsers.get(userId);
+        
+        if (!user) {
+            socket.emit('game-error', { error: 'User not found' });
+            return;
+        }
+
+        try {
+            const gameSession = gameEngine.joinGameSession(gameId, user);
+            
+            console.log(`User ${user.nickname} joined game ${gameId}`);
+            
+            // Join socket room for this game
+            socket.join(`game_${gameId}`);
+            
+            // Send game session to the player who joined
+            socket.emit('game-joined', {
+                gameId: gameSession.id,
+                session: gameSession,
+                playerData: gameSession.players.find(p => p.id === userId)
+            });
+            
+            // Notify all players in the game about new player
+            io.to(`game_${gameId}`).emit('player-joined', {
+                gameId: gameSession.id,
+                player: gameSession.players.find(p => p.id === userId),
+                totalPlayers: gameSession.players.length
+            });
+            
+            // If game started automatically, notify about game start
+            if (gameSession.status === 'active') {
+                io.to(`game_${gameId}`).emit('game-started', {
+                    gameId: gameSession.id,
+                    gameState: gameSession.gameState,
+                    players: gameSession.players
+                });
+            }
+            
+        } catch (error) {
+            console.error('Error joining game:', error);
+            socket.emit('game-error', { error: error.message });
+        }
+    });
+
+    // Leave game session
+    socket.on('leave-game', (data) => {
+        const { gameId } = data;
+        const userId = userSessions.get(socket.id);
+        
+        if (!userId) return;
+
+        try {
+            const gameSession = gameEngine.leaveGameSession(gameId, userId);
+            
+            if (gameSession) {
+                console.log(`User ${userId} left game ${gameId}`);
+                
+                // Leave socket room
+                socket.leave(`game_${gameId}`);
+                
+                // Notify remaining players
+                io.to(`game_${gameId}`).emit('player-left', {
+                    gameId: gameSession.id,
+                    playerId: userId,
+                    remainingPlayers: gameSession.players.length,
+                    gameStatus: gameSession.status
+                });
+                
+                // If game was cancelled or ended due to insufficient players
+                if (gameSession.status === 'cancelled' || gameSession.status === 'finished') {
+                    io.to(`game_${gameId}`).emit('game-ended', {
+                        gameId: gameSession.id,
+                        reason: gameSession.status === 'cancelled' ? 'Game cancelled' : 'Insufficient players',
+                        finalState: gameSession.gameState
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error leaving game:', error);
+            socket.emit('game-error', { error: error.message });
+        }
+    });
+
+    // Set player ready status
+    socket.on('player-ready', (data) => {
+        const { gameId, isReady } = data;
+        const userId = userSessions.get(socket.id);
+        
+        if (!userId) return;
+
+        try {
+            const gameSession = gameEngine.setPlayerReady(gameId, userId, isReady);
+            
+            if (gameSession) {
+                // Notify all players about ready status change
+                io.to(`game_${gameId}`).emit('player-ready', {
+                    gameId: gameSession.id,
+                    playerId: userId,
+                    isReady: isReady,
+                    allReady: gameSession.players.every(p => p.isReady)
+                });
+                
+                // If game started automatically due to all players being ready
+                if (gameSession.status === 'active') {
+                    io.to(`game_${gameId}`).emit('game-started', {
+                        gameId: gameSession.id,
+                        gameState: gameSession.gameState,
+                        players: gameSession.players
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error setting player ready:', error);
+            socket.emit('game-error', { error: error.message });
+        }
+    });
+
+    // Manual game start (for creator)
+    socket.on('start-game', (data) => {
+        const { gameId } = data;
+        const userId = userSessions.get(socket.id);
+        
+        if (!userId) return;
+
+        try {
+            const gameSession = gameEngine.getGameSession(gameId);
+            
+            if (!gameSession) {
+                socket.emit('game-error', { error: 'Game not found' });
+                return;
+            }
+            
+            if (gameSession.creatorId !== userId) {
+                socket.emit('game-error', { error: 'Only game creator can start manually' });
+                return;
+            }
+            
+            const startedSession = gameEngine.startGame(gameId);
+            
+            if (startedSession) {
+                io.to(`game_${gameId}`).emit('game-started', {
+                    gameId: startedSession.id,
+                    gameState: startedSession.gameState,
+                    players: startedSession.players
+                });
+            }
+        } catch (error) {
+            console.error('Error starting game:', error);
+            socket.emit('game-error', { error: error.message });
+        }
+    });
+
+    // Process game move
+    socket.on('game-move', (data) => {
+        const { gameId, move } = data;
+        const userId = userSessions.get(socket.id);
+        
+        if (!userId) return;
+
+        try {
+            const result = gameEngine.processGameMove(gameId, userId, move);
+            const { session, moveResult, winResult } = result;
+            
+            console.log(`Game move processed: ${gameId}, player: ${userId}, move:`, move);
+            
+            // Broadcast move to all players
+            io.to(`game_${gameId}`).emit('game-move', {
+                gameId: session.id,
+                playerId: userId,
+                move: move,
+                moveResult: moveResult,
+                gameState: session.gameState,
+                currentTurn: session.gameState.currentTurn
+            });
+            
+            // If game ended, broadcast game end
+            if (winResult.hasWinner) {
+                io.to(`game_${gameId}`).emit('game-ended', {
+                    gameId: session.id,
+                    winner: winResult.winner,
+                    winCondition: winResult.condition,
+                    finalState: session.gameState,
+                    players: session.players
+                });
+            }
+            
+        } catch (error) {
+            console.error('Error processing game move:', error);
+            socket.emit('game-error', { error: error.message });
+        }
+    });
+
+    // Get nearby games
+    socket.on('get-nearby-games', () => {
+        const userId = userSessions.get(socket.id);
+        const user = activeUsers.get(userId);
+        
+        if (!user || !user.location) {
+            socket.emit('nearby-games', []);
+            return;
+        }
+
+        try {
+            const nearbyGames = gameEngine.getNearbyGameSessions(user.location);
+            
+            // Filter and format games for client
+            const formattedGames = nearbyGames.map(game => ({
+                id: game.id,
+                type: game.type,
+                title: game.title,
+                status: game.status,
+                players: game.players.map(p => ({
+                    id: p.id,
+                    nickname: p.isAnonymous ? null : p.nickname,
+                    avatar: p.avatar,
+                    isAnonymous: p.isAnonymous,
+                    isReady: p.isReady
+                })),
+                maxPlayers: game.maxPlayers,
+                minPlayers: game.minPlayers,
+                createdAt: game.createdAt,
+                distance: game.distance,
+                isCreator: game.creatorId === userId,
+                canJoin: game.status === 'waiting' && game.players.length < game.maxPlayers,
+                estimatedDuration: gameEngine.gameTypes[game.type]?.estimatedDuration || 'Unknown'
+            }));
+            
+            socket.emit('nearby-games', formattedGames);
+            
+        } catch (error) {
+            console.error('Error getting nearby games:', error);
+            socket.emit('nearby-games', []);
+        }
+    });
+
+    // Get game session details
+    socket.on('get-game-details', (data) => {
+        const { gameId } = data;
+        const userId = userSessions.get(socket.id);
+        
+        if (!userId) return;
+
+        try {
+            const gameSession = gameEngine.getGameSession(gameId);
+            
+            if (!gameSession) {
+                socket.emit('game-error', { error: 'Game not found' });
+                return;
+            }
+            
+            // Check if user is in the game or nearby
+            const isPlayer = gameSession.players.some(p => p.id === userId);
+            const user = activeUsers.get(userId);
+            
+            if (!isPlayer && user && user.location) {
+                const distance = gameEngine.calculateDistance(
+                    user.location.latitude,
+                    user.location.longitude,
+                    gameSession.creatorLocation.latitude,
+                    gameSession.creatorLocation.longitude
+                );
+                
+                if (distance > 50) { // 50 meter limit
+                    socket.emit('game-error', { error: 'Game too far away' });
+                    return;
+                }
+            }
+            
+            socket.emit('game-details', {
+                gameId: gameSession.id,
+                session: gameSession,
+                isPlayer: isPlayer
+            });
+            
+        } catch (error) {
+            console.error('Error getting game details:', error);
+            socket.emit('game-error', { error: error.message });
+        }
+    });
+
+    // ===============================
+    // END GAME EVENT HANDLERS
+    // ===============================
+
     // Handle disconnect
     socket.on('disconnect', () => {
         const userId = userSessions.get(socket.id);
@@ -444,6 +815,43 @@ io.on('connection', (socket) => {
                 }
             }
             
+            // Handle game cleanup when user disconnects
+            if (userId) {
+                const activeSessions = gameEngine.getAllActiveSessions();
+                activeSessions.forEach(gameSession => {
+                    const isInGame = gameSession.players.some(p => p.id === userId);
+                    if (isInGame) {
+                        try {
+                            // Leave socket rooms for this game
+                            socket.leave(`game_${gameSession.id}`);
+                            
+                            const updatedSession = gameEngine.leaveGameSession(gameSession.id, userId);
+                            if (updatedSession) {
+                                // Notify remaining players
+                                io.to(`game_${gameSession.id}`).emit('player-left', {
+                                    gameId: gameSession.id,
+                                    playerId: userId,
+                                    remainingPlayers: updatedSession.players.length,
+                                    gameStatus: updatedSession.status,
+                                    reason: 'Player disconnected'
+                                });
+                                
+                                // If game was cancelled or ended
+                                if (updatedSession.status === 'cancelled' || updatedSession.status === 'finished') {
+                                    io.to(`game_${gameSession.id}`).emit('game-ended', {
+                                        gameId: gameSession.id,
+                                        reason: updatedSession.status === 'cancelled' ? 'Game cancelled' : 'Insufficient players',
+                                        finalState: updatedSession.gameState
+                                    });
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error handling game cleanup on disconnect:', error);
+                        }
+                    }
+                });
+            }
+            
             activeUsers.delete(userId);
             userSessions.delete(socket.id);
         }
@@ -464,12 +872,8 @@ setInterval(() => {
         }
     }
     
-    // Clean up old games
-    for (const [gameId, game] of activeGames) {
-        if (now - game.createdAt > maxAge) {
-            activeGames.delete(gameId);
-        }
-    }
+    // Clean up old games using game engine
+    gameEngine.cleanupOldSessions();
     
     // Clean up inactive users (no location update for 5 minutes)
     for (const [userId, user] of activeUsers) {

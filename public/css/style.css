@@ -86,15 +86,28 @@ body {
     line-height: 1.6;
     font-size: var(--font-size-base);
     min-height: 100vh;
-    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Prevent body scroll */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* Glassmorphism Background Pattern */
-body::before {
-    content: '';
+/* App Container - Main Wrapper */
+.app-container {
+    width: 100vw;
+    height: 100vh;
     position: fixed;
+    top: 0;
+    left: 0;
+    background: var(--background);
+    overflow: hidden;
+}
+
+/* Glassmorphism Background Pattern */
+.app-container::before {
+    content: '';
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
@@ -103,7 +116,7 @@ body::before {
         radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
         radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
         radial-gradient(circle at 40% 80%, rgba(120, 219, 255, 0.3) 0%, transparent 50%);
-    z-index: -1;
+    z-index: 0;
     animation: backgroundFloat 20s ease-in-out infinite;
 }
 
@@ -127,19 +140,34 @@ body::before {
     overflow: hidden;
 }
 
-/* Screen Management */
+/* Screen Management - Proper App-like Navigation */
 .screen {
     display: none;
     width: 100%;
     height: 100vh;
-    position: relative;
-    background: var(--surface);
-    border-radius: var(--radius-xl);
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: transparent;
+    overflow: hidden;
+    z-index: 1;
 }
 
 .screen.active {
-    display: block;
+    display: flex;
+    flex-direction: column;
     animation: screenSlideIn 0.4s var(--spring);
+}
+
+/* Main Screen Layout */
+#main-screen {
+    max-width: 420px;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
 }
 
 @keyframes screenSlideIn {
@@ -194,10 +222,8 @@ body::before {
     font-size: var(--font-size-3xl);
     margin-bottom: var(--spacing-md);
     font-weight: 700;
-    background: linear-gradient(45deg, #fff, #f0f0f0);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #ffffff;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 255, 255, 0.4);
     animation: titleGlow 2s ease-in-out infinite alternate;
 }
 
@@ -291,9 +317,9 @@ body::before {
     font-family: var(--font-family-playful);
     font-size: var(--font-size-3xl);
     font-weight: 700;
-    color: var(--text-white);
+    color: #ffffff;
     margin-bottom: var(--spacing-md);
-    text-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 255, 255, 0.3);
 }
 
 .welcome-content .header p {
@@ -329,11 +355,12 @@ body::before {
     font-weight: 600;
     font-size: var(--font-size-lg);
     color: var(--text-primary);
-    background: var(--surface-alt);
+    background: rgba(255, 255, 255, 0.95);
     padding: var(--spacing-sm) var(--spacing-md);
     border-radius: var(--radius-full);
     transition: all var(--transition-normal);
     border: 2px solid transparent;
+    text-shadow: none;
 }
 
 .nickname-editable {
@@ -355,11 +382,12 @@ body::before {
     align-items: center;
     gap: var(--spacing-sm);
     font-size: var(--font-size-sm);
-    color: var(--text-secondary);
-    background: var(--surface-alt);
+    color: rgba(26, 26, 46, 0.8);
+    background: rgba(255, 255, 255, 0.9);
     padding: var(--spacing-sm) var(--spacing-md);
     border-radius: var(--radius-full);
     font-weight: 500;
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.8);
 }
 
 #location-indicator {
@@ -417,12 +445,13 @@ body::before {
     padding: var(--spacing-md) var(--spacing-lg);
     font-size: var(--font-size-sm);
     font-weight: 600;
-    color: var(--text-secondary);
+    color: rgba(26, 26, 46, 0.8);
     cursor: pointer;
     border-radius: var(--radius-lg);
     transition: all var(--transition-normal);
     position: relative;
     overflow: hidden;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
 }
 
 .tab-btn::before {
@@ -440,8 +469,9 @@ body::before {
 
 .tab-btn:hover {
     color: var(--text-primary);
-    background: var(--surface-alt);
+    background: rgba(255, 255, 255, 0.9);
     transform: translateY(-2px);
+    text-shadow: none;
 }
 
 .tab-btn:hover::before {
@@ -450,9 +480,10 @@ body::before {
 
 .tab-btn.active {
     background: var(--primary-solid);
-    color: var(--text-white);
+    color: #ffffff;
     box-shadow: var(--shadow-md);
     transform: translateY(-2px);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .tab-btn.active::before {
@@ -575,6 +606,7 @@ body::before {
     box-shadow: var(--shadow-sm);
     position: relative;
     overflow: hidden;
+    margin-bottom: var(--spacing-md);
 }
 
 .user-card::before {
@@ -602,6 +634,28 @@ body::before {
 .user-card:active {
     transform: translateY(-2px) scale(1.01);
     transition: all 0.1s ease;
+}
+
+/* Unread Message Indicator */
+.unread-indicator {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--error);
+    color: white;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: var(--radius-full);
+    min-width: 20px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+    animation: unreadPulse 2s infinite;
+}
+
+@keyframes unreadPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
 }
 
 .user-avatar {
@@ -632,12 +686,14 @@ body::before {
     color: var(--text-primary);
     margin-bottom: var(--spacing-xs);
     font-size: var(--font-size-lg);
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .user-distance {
     font-size: var(--font-size-sm);
-    color: var(--text-secondary);
+    color: rgba(26, 26, 46, 0.7);
     font-weight: 500;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 /* Chat Modal - Stunning Design */
@@ -645,8 +701,8 @@ body::before {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(10px);
     display: none;
@@ -704,6 +760,7 @@ body::before {
     font-weight: 600;
     color: var(--text-primary);
     font-size: var(--font-size-lg);
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .chat-messages {
@@ -838,22 +895,25 @@ input[type="text"]::placeholder, textarea::placeholder {
 
 .message .sender {
     font-size: var(--font-size-xs);
-    color: var(--text-secondary);
+    color: rgba(26, 26, 46, 0.8);
     margin-bottom: var(--spacing-xs);
     font-weight: 500;
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
 }
 
 .message .time {
     font-size: var(--font-size-xs);
-    color: var(--text-muted);
+    color: rgba(26, 26, 46, 0.6);
     margin-top: var(--spacing-xs);
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
 }
 
 /* Empty States */
 .empty-state {
     text-align: center;
     padding: var(--spacing-2xl);
-    color: var(--text-secondary);
+    color: rgba(26, 26, 46, 0.8);
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.7);
 }
 
 .empty-state .icon {
@@ -869,24 +929,43 @@ input[type="text"]::placeholder, textarea::placeholder {
 
 /* Responsive Design */
 @media (max-width: 480px) {
-    .container {
+    .app-container {
+        width: 100vw;
+        height: 100vh;
+    }
+    
+    #main-screen {
         margin: 0;
         border-radius: 0;
-        min-height: 100vh;
+        max-width: 100%;
+        height: 100vh;
     }
     
     .app-header {
         padding: var(--spacing-md) var(--spacing-lg);
+        border-radius: 0;
     }
     
     .tab-nav {
         margin: 0;
         border-radius: 0;
+        position: sticky;
+        top: 70px;
+    }
+    
+    .tab-content {
+        height: calc(100vh - 140px);
     }
     
     .modal-content {
         width: 95%;
         margin: var(--spacing-md);
+        max-height: 90vh;
+    }
+    
+    .screen {
+        width: 100vw;
+        height: 100vh;
     }
 }
 
@@ -915,6 +994,17 @@ input[type="text"]::placeholder, textarea::placeholder {
     to {
         opacity: 1;
         transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes slideOutNotification {
+    from {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(100%) scale(0.8);
     }
 }
 
@@ -989,24 +1079,25 @@ input[type="text"]::placeholder, textarea::placeholder {
     width: 100%;
     padding: var(--spacing-lg);
     font-size: var(--font-size-lg);
-    background: var(--glass-bg);
+    background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(15px);
-    border: 2px solid var(--glass-border);
+    border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: var(--radius-xl);
-    color: var(--text-white);
+    color: var(--text-primary);
     font-weight: 500;
     transition: all var(--transition-normal);
 }
 
 .nickname-form input::placeholder {
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--text-secondary);
 }
 
 .nickname-form input:focus {
     outline: none;
-    border-color: rgba(255, 255, 255, 0.5);
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+    border-color: var(--primary-solid);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
     transform: translateY(-2px);
+    background: rgba(255, 255, 255, 1);
 }
 
 .nickname-form button {
@@ -1048,14 +1139,15 @@ input[type="text"]::placeholder, textarea::placeholder {
     align-items: center;
     gap: var(--spacing-md);
     padding: var(--spacing-lg);
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(10px);
     border-radius: var(--radius-lg);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
     transition: all var(--transition-normal);
     animation: featureSlideIn 0.6s var(--spring);
     animation-fill-mode: both;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .feature:nth-child(1) { animation-delay: 0.1s; }
@@ -1091,12 +1183,13 @@ input[type="text"]::placeholder, textarea::placeholder {
     gap: var(--spacing-sm);
     cursor: pointer;
     user-select: none;
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(26, 26, 46, 0.9);
     transition: all var(--transition-normal);
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.7);
 }
 
 .checkbox-label:hover {
-    color: var(--text-white);
+    color: var(--text-primary);
 }
 
 .checkbox-label input[type="checkbox"] {
@@ -1141,17 +1234,15 @@ input[type="text"]::placeholder, textarea::placeholder {
 .tab-content {
     flex: 1;
     overflow-y: auto;
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
-    margin: var(--spacing-md);
-    border-radius: var(--radius-xl);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: transparent;
+    height: calc(100vh - 160px); /* Account for header and tabs */
 }
 
 .tab-panel {
     display: none;
     padding: var(--spacing-lg);
     height: 100%;
+    overflow-y: auto;
 }
 
 .tab-panel.active {
@@ -1182,10 +1273,7 @@ input[type="text"]::placeholder, textarea::placeholder {
     font-size: var(--font-size-xl);
     font-weight: 700;
     color: var(--text-primary);
-    background: var(--primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.7);
 }
 
 /* Thread Cards */
