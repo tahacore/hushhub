@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light only">
     <title>HushHub - Connect Nearby</title>
     
     <!-- Enhanced Font Loading with Critical Fallbacks -->
@@ -11,15 +12,27 @@
     
     <!-- Critical CSS for immediate rendering -->
     <style>
-        /* Critical font fallbacks to prevent FOUT */
+        /* Force light mode and prevent dark mode detection */
         :root {
+            color-scheme: light only;
             --font-primary: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             --font-secondary: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             --font-accent: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
         }
         
+        /* Override any dark mode preferences */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                color-scheme: light only !important;
+            }
+        }
+        
         /* Ensure fonts load with fallbacks */
-        body { font-family: var(--font-primary); }
+        body { 
+            font-family: var(--font-primary); 
+            background: #f8fafc !important;
+            color: #0f172a !important;
+        }
         h1, h2, h3, h4, h5, h6 { font-family: var(--font-accent); }
         
         /* Prevent FOUT */
@@ -41,8 +54,8 @@
     <meta name="apple-mobile-web-app-title" content="HushHub">
     
     <!-- CSS with Enhanced Cache Busting -->
-    <link rel="stylesheet" href="/css/style.css?v=3.1&t=202507271200">
-    <link rel="stylesheet" href="/css/games.css?v=3.1&t=202507271200">
+    <link rel="stylesheet" href="/css/style.css?v=4.0&t=202507271300&fix=lightmode">
+    <link rel="stylesheet" href="/css/games.css?v=4.0&t=202507271300&fix=lightmode">
 </head>
 <body>
     <!-- App Container -->
@@ -286,6 +299,18 @@
     
     <!-- Font Loading Optimization -->
     <script>
+        // Force light mode immediately before any other styles load
+        (function() {
+            // Override any dark mode preferences
+            const root = document.documentElement;
+            root.style.setProperty('color-scheme', 'light only');
+            root.setAttribute('data-theme', 'light');
+            
+            // Force light background immediately
+            document.body.style.backgroundColor = '#f8fafc';
+            document.body.style.color = '#0f172a';
+        })();
+        
         // Ensure fonts load properly and apply styles immediately
         document.addEventListener('DOMContentLoaded', function() {
             // Force CSS custom property refresh after font load
@@ -294,6 +319,12 @@
                 root.style.setProperty('--font-primary', "'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif");
                 root.style.setProperty('--font-secondary', "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif");
                 root.style.setProperty('--font-accent', "'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif");
+                
+                // Ensure light theme variables are set
+                root.style.setProperty('color-scheme', 'light only');
+                root.style.setProperty('--background', 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%)');
+                root.style.setProperty('--surface', 'rgba(255, 255, 255, 1)');
+                root.style.setProperty('--text-primary', '#0f172a');
                 
                 // Force repaint
                 document.body.style.display = 'none';

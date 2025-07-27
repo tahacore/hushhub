@@ -1678,13 +1678,5 @@ input[type="text"]::placeholder, textarea::placeholder {
     background: var(--text-muted);
     color: white;
 }
-@media (prefers-color-scheme: dark) {
-    :root {
-        --text-primary: #ffffff;
-        --text-secondary: #292929;
-        --text-muted: #292d32;
-        --surface: rgba(30, 30, 46, 0.95);
-        --surface-alt: rgba(30, 30, 46, 0.85);
-        --glass-bg: rgba(30, 30, 46, 0.35);
-    }
-}
+
+/* End of CSS - Dark mode removed to ensure consistent light theme across all deployments */
