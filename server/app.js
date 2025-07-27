@@ -49,6 +49,20 @@ app.use(helmet({
 app.use(compression());
 app.use(cors());
 app.use(express.json());
+
+// Add cache control headers to prevent caching during development/updates
+app.use((req, res, next) => {
+    if (NODE_ENV === 'production') {
+        // Prevent caching of HTML, JS, and CSS files in production for immediate updates
+        if (req.url.endsWith('.html') || req.url.endsWith('.js') || req.url.endsWith('.css') || req.url === '/') {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        }
+    }
+    next();
+});
+
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Routes
