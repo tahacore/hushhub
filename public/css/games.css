@@ -1,5 +1,253 @@
+/* Enhanced Game Platform Styles with State Synchronization Support
+   ============================================ */
+
+/* Reconnection and Connection Status Overlays */
+.reconnection-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: fadeIn 0.3s ease;
+}
+
+.reconnection-content {
+    background: var(--surface);
+    padding: var(--spacing-xl);
+    border-radius: var(--radius-xl);
+    text-align: center;
+    max-width: 400px;
+    width: 90vw;
+    box-shadow: var(--shadow-xl);
+}
+
+.reconnection-icon {
+    font-size: 48px;
+    margin-bottom: var(--spacing-md);
+    animation: pulse 2s infinite;
+}
+
+.reconnection-content h3 {
+    margin: 0 0 var(--spacing-sm) 0;
+    color: var(--text-primary);
+}
+
+.reconnection-content p {
+    margin: 0 0 var(--spacing-lg) 0;
+    color: var(--text-secondary);
+}
+
+.reconnection-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--border);
+    border-top: 4px solid var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: var(--spacing-md) auto;
+}
+
+.reconnection-status {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-lg);
+}
+
+.manual-reconnect-btn,
+.manual-options button {
+    margin: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border: none;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+}
+
+.manual-reconnect-btn {
+    background: var(--primary);
+    color: white;
+}
+
+.manual-reconnect-btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+/* Game Pause Overlay */
+.game-pause-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+}
+
+.game-pause-content {
+    background: var(--surface);
+    padding: var(--spacing-xl);
+    border-radius: var(--radius-xl);
+    text-align: center;
+    box-shadow: var(--shadow-xl);
+}
+
+.pause-icon {
+    font-size: 48px;
+    margin-bottom: var(--spacing-md);
+}
+
+/* Player Connection Status Indicators */
+.player-status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    margin-left: var(--spacing-xs);
+    animation: pulse 2s infinite;
+}
+
+.player-status-indicator.disconnected {
+    background: var(--error);
+    animation: blink 1s infinite;
+}
+
+/* Enhanced Game State Sync Animations */
+.game-state-syncing {
+    position: relative;
+    overflow: hidden;
+}
+
+.game-state-syncing::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    animation: syncProgress 2s infinite;
+    z-index: 1;
+}
+
+/* Turn Timer and Visual Feedback */
+.turn-timer {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.timer-circle {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: conic-gradient(var(--primary) 0deg, var(--border) 0deg);
+    animation: countdown 30s linear infinite;
+}
+
+.timer-urgent {
+    animation: countdown 10s linear infinite, shake 0.5s ease-in-out infinite;
+}
+
+/* Optimistic Update Indicators */
+.move-pending {
+    opacity: 0.6;
+    position: relative;
+}
+
+.move-pending::after {
+    content: '⏳';
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    font-size: 12px;
+    animation: spin 2s linear infinite;
+}
+
+.move-confirmed {
+    animation: confirmPulse 0.5s ease-out;
+}
+
+.move-failed {
+    animation: errorShake 0.5s ease-out;
+    border: 2px solid var(--error);
+}
+
+/* Enhanced Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.3; }
+}
+
+@keyframes syncProgress {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+@keyframes countdown {
+    from { background: conic-gradient(var(--primary) 360deg, var(--border) 360deg); }
+    to { background: conic-gradient(var(--primary) 0deg, var(--border) 0deg); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+}
+
+@keyframes confirmPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); background: var(--success); }
+    100% { transform: scale(1); }
+}
+
+@keyframes errorShake {
+    0%, 100% { transform: translateX(0); }
+    25%, 75% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+}
+
+/* State Conflict Resolution Indicators */
+.state-conflict-warning {
+    background: linear-gradient(45deg, var(--warning) 25%, transparent 25%, transparent 75%, var(--warning) 75%);
+    background-size: 10px 10px;
+    animation: conflictPattern 2s infinite;
+}
+
+@keyframes conflictPattern {
+    0% { background-position: 0 0; }
+    100% { background-position: 20px 20px; }
+}
+
 /* ============================================
-   ENHANCED GAME PLATFORM STYLES
+   ORIGINAL GAME PLATFORM STYLES CONTINUE...
    ============================================ */
 
 /* Enhanced Game Creation Modal */
@@ -1391,58 +1639,191 @@
     flex-direction: column;
     align-items: center;
     gap: var(--spacing-xl);
+    padding: var(--spacing-lg);
 }
 
-.game-board {
+.game-status-info {
+    text-align: center;
+    background: var(--surface-alt);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-lg);
+    border: 2px solid var(--border);
+    width: 100%;
+    max-width: 400px;
+}
+
+.game-status-info h4 {
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+    font-size: 1.2rem;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+.my-symbol {
+    font-size: 1.4rem;
+    font-weight: bold;
+    background: var(--primary);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+}
+
+.turn-status {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.turn-status.my-turn {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+    border: 2px solid var(--success);
+    animation: turnGlow 2s infinite;
+}
+
+.turn-status.wait-turn {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning);
+    border: 2px solid var(--warning);
+}
+
+.game-board-container {
+    display: flex;
+    justify-content: center;
+    padding: var(--spacing-lg);
+    background: var(--surface);
+    border-radius: var(--radius-xl);
+    border: 2px solid var(--border);
+    box-shadow: var(--shadow-lg);
+}
+
+.tic-tac-toe-board {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
     background: var(--surface-alt);
-    padding: var(--spacing-md);
     border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
 }
 
 .board-cell {
-    width: 80px;
-    height: 80px;
-    background: white;
-    border: 2px solid var(--border);
-    border-radius: var(--radius-md);
-    font-size: 2rem;
+    width: 90px;
+    height: 90px;
+    background: var(--surface);
+    border: 3px solid var(--border);
+    border-radius: var(--radius-lg);
+    font-size: 2.5rem;
     font-weight: bold;
     color: var(--text-primary);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all var(--transition-normal);
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.board-cell:hover:not(:disabled) {
-    background: var(--surface-alt);
-    transform: scale(1.05);
+.board-cell::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 50%);
+    opacity: 0;
+    transition: opacity var(--transition-normal);
+}
+
+.board-cell:hover::before {
+    opacity: 1;
+}
+
+.board-cell.available:hover:not(:disabled) {
+    background: var(--primary-light);
+    transform: translateY(-2px) scale(1.05);
+    border-color: var(--primary-solid);
+    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+}
+
+.board-cell.available:hover .cell-content::after {
+    content: attr(data-preview);
+    opacity: 0.3;
+    font-size: 2rem;
 }
 
 .board-cell.filled {
     cursor: not-allowed;
+    background: var(--surface-alt);
+    border-color: var(--success);
+    animation: cellFilled 0.3s ease;
+}
+
+.board-cell.filled .cell-content {
+    animation: symbolPop 0.4s var(--spring);
+}
+
+.cell-content {
+    position: relative;
+    z-index: 2;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .board-cell:disabled {
-    opacity: 0.6;
+    opacity: 0.7;
     cursor: not-allowed;
+    transform: none;
 }
 
-.game-info {
+.game-instructions {
     text-align: center;
+    background: var(--surface);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    width: 100%;
+    max-width: 400px;
 }
 
-.your-turn {
-    color: var(--success);
-    font-weight: 600;
+.game-instructions p {
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.7);
 }
 
-.wait-turn {
-    color: var(--text-muted);
+.game-instructions p:last-child {
+    margin-bottom: 0;
+}
+
+@keyframes cellFilled {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+@keyframes symbolPop {
+    0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+    70% { transform: scale(1.2) rotate(-10deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes turnGlow {
+    0%, 100% { 
+        box-shadow: 0 0 5px var(--success);
+        transform: scale(1);
+    }
+    50% { 
+        box-shadow: 0 0 20px var(--success);
+        transform: scale(1.02);
+    }
 }
 
 /* Rock Paper Scissors Game */
@@ -1860,7 +2241,25 @@ canvas {
     .board-cell {
         width: 60px;
         height: 60px;
-        font-size: 1.5rem;
+        font-size: 1.8rem;
+    }
+    
+    .game-status-info {
+        padding: var(--spacing-md);
+        margin-bottom: var(--spacing-md);
+    }
+    
+    .game-board-container {
+        padding: var(--spacing-md);
+    }
+    
+    .tic-tac-toe-board {
+        padding: var(--spacing-md);
+        gap: var(--spacing-xs);
+    }
+    
+    .game-instructions {
+        padding: var(--spacing-md);
     }
     
     .rps-choices {
@@ -1914,7 +2313,20 @@ canvas {
     .board-cell {
         width: 50px;
         height: 50px;
+        font-size: 1.4rem;
+    }
+    
+    .game-status-info h4 {
+        font-size: 1rem;
+    }
+    
+    .my-symbol {
         font-size: 1.2rem;
+    }
+    
+    .tic-tac-toe-game {
+        padding: var(--spacing-md);
+        gap: var(--spacing-md);
     }
     
     .game-actions {
@@ -1999,6 +2411,173 @@ canvas {
     to {
         transform: translateX(0);
         opacity: 1;
+    }
+}
+
+/* Game Waiting State */
+.game-waiting-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-xl);
+    padding: var(--spacing-xxl);
+    text-align: center;
+    min-height: 400px;
+    justify-content: center;
+}
+
+.waiting-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.waiting-icon {
+    font-size: 4rem;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+    animation: bobFloat 3s ease-in-out infinite;
+}
+
+.waiting-header h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(255, 255, 255, 0.8);
+}
+
+.waiting-header p {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin: 0;
+    max-width: 400px;
+    line-height: 1.5;
+}
+
+.game-info-card {
+    background: var(--surface);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-xl);
+    border: 2px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    max-width: 500px;
+    width: 100%;
+}
+
+.game-details {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-lg);
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: var(--surface-alt);
+    border-radius: var(--radius-md);
+}
+
+.detail-icon {
+    font-size: 1.3rem;
+}
+
+.detail-text {
+    font-weight: 600;
+    color: var(--text-primary);
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.8);
+}
+
+.waiting-animation {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.pulse-dot {
+    width: 12px;
+    height: 12px;
+    background: var(--primary-solid);
+    border-radius: 50%;
+    animation: pulseWave 1.5s ease-in-out infinite;
+}
+
+.pulse-dot:nth-child(2) {
+    animation-delay: 0.3s;
+}
+
+.pulse-dot:nth-child(3) {
+    animation-delay: 0.6s;
+}
+
+.waiting-actions {
+    max-width: 500px;
+    width: 100%;
+}
+
+.waiting-message {
+    background: var(--surface-alt);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    border: 1px solid var(--border);
+}
+
+.waiting-message p {
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.waiting-message p:last-child {
+    margin-bottom: 0;
+    color: var(--success);
+    font-weight: 600;
+}
+
+@keyframes bobFloat {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes pulseWave {
+    0%, 100% { 
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% { 
+        transform: scale(1.5);
+        opacity: 0.5;
+    }
+}
+
+/* Mobile responsive for waiting state */
+@media (max-width: 768px) {
+    .game-waiting-state {
+        padding: var(--spacing-lg);
+        gap: var(--spacing-lg);
+    }
+    
+    .waiting-icon {
+        font-size: 3rem;
+    }
+    
+    .waiting-header h2 {
+        font-size: 1.5rem;
+    }
+    
+    .waiting-header p {
+        font-size: 1rem;
+    }
+    
+    .game-details {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-md);
+    }
+    
+    .detail-item {
+        padding: var(--spacing-sm);
     }
 }
 

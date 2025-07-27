@@ -67,6 +67,152 @@ app.get('/health', (req, res) => {
 });
 
 // Utility functions
+function broadcastGameStateToRoom(gameSession) {
+    if (!gameSession || !gameSession.id) {
+        console.error('Cannot broadcast - invalid game session');
+        return;
+    }
+    
+    console.log(`📡 Broadcasting complete game state to room game_${gameSession.id}`);
+    console.log(`📡 Broadcasting to ${gameSession.players.length} players:`, gameSession.players.map(p => p.nickname));
+    
+    // Enhanced state packet with sequence number and acknowledgment requirement
+    const statePacket = {
+        id: generateStateId(),
+        gameId: gameSession.id,
+        gameSession: gameSession,
+        players: gameSession.players,
+        status: gameSession.status,
+        gameState: gameSession.gameState,
+        totalPlayers: gameSession.players.length,
+        timestamp: Date.now(),
+        sequence: gameSession.stateSequence,
+        requiresAck: true
+    };
+    
+    // Track acknowledgments for this broadcast
+    const ackTracker = {
+        id: statePacket.id,
+        gameId: gameSession.id,
+        expectedAcks: gameSession.players.filter(p => p.isConnected).length,
+        receivedAcks: new Set(),
+        broadcastTime: Date.now(),
+        retryCount: 0
+    };
+    
+    gameSession.acknowledgments.set(statePacket.id, ackTracker);
+    
+    // Broadcast to all connected players with acknowledgment requirement
+    gameSession.players.forEach(player => {
+        if (player.isConnected) {
+            const socketId = getPlayerSocketId(player.id);
+            if (socketId) {
+                io.to(socketId).emit('game-state-sync', statePacket, (ack) => {
+                    handleGameStateAcknowledgment(statePacket.id, player.id, ack);
+                });
+            }
+        }
+    });
+    
+    // Set timeout for retrying failed acknowledgments
+    setTimeout(() => {
+        retryFailedGameStateBroadcast(statePacket.id);
+    }, 3000); // 3 second timeout
+    
+    console.log(`📡 Game state broadcasted successfully for game ${gameSession.id} with sequence ${gameSession.stateSequence}`);
+}
+
+function generateStateId() {
+    return 'state_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+}
+
+function handleGameStateAcknowledgment(stateId, playerId, ack) {
+    // Find the game session that contains this state broadcast
+    for (const [gameId, gameSession] of activeGames) {
+        const ackTracker = gameSession.acknowledgments.get(stateId);
+        if (ackTracker) {
+            if (ack && ack.received) {
+                ackTracker.receivedAcks.add(playerId);
+                console.log(`✅ Received ack from player ${playerId} for state ${stateId} (${ackTracker.receivedAcks.size}/${ackTracker.expectedAcks})`);
+                
+                // Check if all acknowledgments received
+                if (ackTracker.receivedAcks.size >= ackTracker.expectedAcks) {
+                    console.log(`🎯 All acknowledgments received for state ${stateId}`);
+                    gameSession.acknowledgments.delete(stateId);
+                }
+            } else {
+                console.warn(`❌ Failed ack from player ${playerId} for state ${stateId}`);
+            }
+            break;
+        }
+    }
+}
+
+function retryFailedGameStateBroadcast(stateId) {
+    // Find the game session and retry failed broadcasts
+    for (const [gameId, gameSession] of activeGames) {
+        const ackTracker = gameSession.acknowledgments.get(stateId);
+        if (ackTracker && ackTracker.retryCount < 3) {
+            const missingPlayers = gameSession.players.filter(p => 
+                p.isConnected && !ackTracker.receivedAcks.has(p.id)
+            );
+            
+            if (missingPlayers.length > 0) {
+                console.log(`🔄 Retrying state broadcast ${stateId} for ${missingPlayers.length} players (attempt ${ackTracker.retryCount + 1})`);
+                
+                const statePacket = {
+                    id: stateId,
+                    gameId: gameSession.id,
+                    gameSession: gameSession,
+                    players: gameSession.players,
+                    status: gameSession.status,
+                    gameState: gameSession.gameState,
+                    totalPlayers: gameSession.players.length,
+                    timestamp: Date.now(),
+                    sequence: gameSession.stateSequence,
+                    requiresAck: true,
+                    isRetry: true
+                };
+                
+                missingPlayers.forEach(player => {
+                    const socketId = getPlayerSocketId(player.id);
+                    if (socketId) {
+                        io.to(socketId).emit('game-state-sync', statePacket, (ack) => {
+                            handleGameStateAcknowledgment(stateId, player.id, ack);
+                        });
+                    }
+                });
+                
+                ackTracker.retryCount++;
+                
+                // Schedule another retry if needed
+                if (ackTracker.retryCount < 3) {
+                    setTimeout(() => {
+                        retryFailedGameStateBroadcast(stateId);
+                    }, 5000); // 5 second retry interval
+                }
+            } else {
+                // All players have acknowledged, clean up
+                gameSession.acknowledgments.delete(stateId);
+            }
+        } else if (ackTracker && ackTracker.retryCount >= 3) {
+            // Max retries reached, give up and clean up
+            console.warn(`⚠️ Max retries reached for state ${stateId}, giving up`);
+            gameSession.acknowledgments.delete(stateId);
+        }
+    }
+}
+
+function getPlayerSocketId(playerId) {
+    // Find socket ID for a player
+    for (const [socketId, userId] of userSessions) {
+        if (userId === playerId) {
+            return socketId;
+        }
+    }
+    return null;
+}
+
 function calculateDistance(lat1, lon1, lat2, lon2) {
     const R = 6371e3; // Earth's radius in meters
     const φ1 = lat1 * Math.PI / 180;
@@ -462,7 +608,11 @@ io.on('connection', (socket) => {
             
             console.log(`Game created: ${gameSession.id} by ${user.nickname}`);
             
-            // Send confirmation to creator
+            // IMPORTANT: Creator must join the game room immediately
+            socket.join(`game_${gameSession.id}`);
+            console.log(`Creator ${user.nickname} joined room game_${gameSession.id}`);
+            
+            // Send confirmation to creator with complete game state
             socket.emit('game-created', {
                 gameId: gameSession.id,
                 session: gameSession
@@ -518,28 +668,39 @@ io.on('connection', (socket) => {
             
             // Join socket room for this game
             socket.join(`game_${gameId}`);
+            console.log(`Player ${user.nickname} joined room game_${gameId}`);
             
-            // Send game session to the player who joined
+            // Send complete game session to the player who joined
             socket.emit('game-joined', {
                 gameId: gameSession.id,
                 session: gameSession,
                 playerData: gameSession.players.find(p => p.id === userId)
             });
             
-            // Notify all players in the game about new player
+            // CRITICAL: Broadcast complete game state to ALL players in the room
+            // This ensures everyone has the same synchronized view
             io.to(`game_${gameId}`).emit('player-joined', {
                 gameId: gameSession.id,
                 player: gameSession.players.find(p => p.id === userId),
-                totalPlayers: gameSession.players.length
+                game: gameSession, // Include complete game state
+                totalPlayers: gameSession.players.length,
+                players: gameSession.players // Full player list for synchronization
             });
+            
+            // Also broadcast complete game state for extra synchronization
+            broadcastGameStateToRoom(gameSession);
+            
+            console.log(`Broadcasted player-joined to room game_${gameId} with ${gameSession.players.length} players`);
             
             // If game started automatically, notify about game start
             if (gameSession.status === 'active') {
                 io.to(`game_${gameId}`).emit('game-started', {
                     gameId: gameSession.id,
                     gameState: gameSession.gameState,
+                    gameSession: gameSession,
                     players: gameSession.players
                 });
+                console.log(`Game ${gameId} auto-started with ${gameSession.players.length} players`);
             }
             
         } catch (error) {
@@ -644,11 +805,24 @@ io.on('connection', (socket) => {
             const startedSession = gameEngine.startGame(gameId);
             
             if (startedSession) {
+                console.log(`Manual game start: ${gameId} by creator ${userId}`);
+                
+                // Broadcast complete game state to ALL players in the room
                 io.to(`game_${gameId}`).emit('game-started', {
                     gameId: startedSession.id,
                     gameState: startedSession.gameState,
-                    players: startedSession.players
+                    gameSession: startedSession, // Include complete session for synchronization
+                    players: startedSession.players,
+                    status: startedSession.status,
+                    startedAt: startedSession.startedAt
                 });
+                
+                console.log(`Broadcasted game-started to room game_${gameId} for ${startedSession.players.length} players`);
+                
+                // Also broadcast complete game state for synchronization
+                broadcastGameStateToRoom(startedSession);
+            } else {
+                socket.emit('game-error', { error: 'Could not start game' });
             }
         } catch (error) {
             console.error('Error starting game:', error);
@@ -709,28 +883,31 @@ io.on('connection', (socket) => {
         try {
             const nearbyGames = gameEngine.getNearbyGameSessions(user.location);
             
-            // Filter and format games for client
-            const formattedGames = nearbyGames.map(game => ({
-                id: game.id,
-                type: game.type,
-                title: game.title,
-                status: game.status,
-                players: game.players.map(p => ({
-                    id: p.id,
-                    nickname: p.isAnonymous ? null : p.nickname,
-                    avatar: p.avatar,
-                    isAnonymous: p.isAnonymous,
-                    isReady: p.isReady
-                })),
-                maxPlayers: game.maxPlayers,
-                minPlayers: game.minPlayers,
-                createdAt: game.createdAt,
-                distance: game.distance,
-                isCreator: game.creatorId === userId,
-                canJoin: game.status === 'waiting' && game.players.length < game.maxPlayers,
-                estimatedDuration: gameEngine.gameTypes[game.type]?.estimatedDuration || 'Unknown'
-            }));
+            // Filter out ended/cancelled games and format for client
+            const formattedGames = nearbyGames
+                .filter(game => game.status !== 'cancelled' && game.status !== 'finished')
+                .map(game => ({
+                    id: game.id,
+                    type: game.type,
+                    title: game.title,
+                    status: game.status,
+                    players: game.players.map(p => ({
+                        id: p.id,
+                        nickname: p.isAnonymous ? null : p.nickname,
+                        avatar: p.avatar,
+                        isAnonymous: p.isAnonymous,
+                        isReady: p.isReady
+                    })),
+                    maxPlayers: game.maxPlayers,
+                    minPlayers: game.minPlayers,
+                    createdAt: game.createdAt,
+                    distance: game.distance,
+                    isCreator: game.creatorId === userId,
+                    canJoin: game.status === 'waiting' && game.players.length < game.maxPlayers,
+                    estimatedDuration: gameEngine.gameTypes[game.type]?.estimatedDuration || 'Unknown'
+                }));
             
+            console.log(`Found ${formattedGames.length} active nearby games for user ${user.nickname}`);
             socket.emit('nearby-games', formattedGames);
             
         } catch (error) {
@@ -784,18 +961,59 @@ io.on('connection', (socket) => {
         }
     });
 
+    // End game session (for creator)
+    socket.on('end-game', (data) => {
+        const { gameId } = data;
+        const userId = userSessions.get(socket.id);
+        
+        if (!userId) return;
+
+        try {
+            const gameSession = gameEngine.getGameSession(gameId);
+            
+            if (!gameSession) {
+                socket.emit('game-error', { error: 'Game not found' });
+                return;
+            }
+            
+            if (gameSession.creatorId !== userId) {
+                socket.emit('game-error', { error: 'Only game creator can end the session' });
+                return;
+            }
+            
+            console.log(`Game ended by creator: ${gameId}`);
+            
+            // Mark game as cancelled
+            gameSession.status = 'cancelled';
+            gameSession.finishedAt = Date.now();
+            
+            // Notify all players in the room
+            io.to(`game_${gameId}`).emit('game-ended', {
+                gameId: gameSession.id,
+                reason: 'Game ended by creator',
+                finalState: gameSession.gameState
+            });
+            
+            console.log(`Notified all players that game ${gameId} was ended`);
+            
+        } catch (error) {
+            console.error('Error ending game:', error);
+            socket.emit('game-error', { error: error.message });
+        }
+    });
+
     // ===============================
     // END GAME EVENT HANDLERS
     // ===============================
 
     // Handle disconnect
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
         const userId = userSessions.get(socket.id);
         
         if (userId) {
             const user = activeUsers.get(userId);
             if (user) {
-                console.log(`User ${user.nickname} disconnected`);
+                console.log(`User ${user.nickname} disconnected (reason: ${reason})`);
                 
                 // Remove from nearby users for all other users
                 if (user.location) {
@@ -815,35 +1033,69 @@ io.on('connection', (socket) => {
                 }
             }
             
-            // Handle game cleanup when user disconnects
+            // Enhanced game cleanup with graceful disconnection handling
             if (userId) {
                 const activeSessions = gameEngine.getAllActiveSessions();
                 activeSessions.forEach(gameSession => {
                     const isInGame = gameSession.players.some(p => p.id === userId);
                     if (isInGame) {
                         try {
-                            // Leave socket rooms for this game
-                            socket.leave(`game_${gameSession.id}`);
+                            console.log(`🔌 Player ${userId} disconnected from game ${gameSession.id}`);
                             
-                            const updatedSession = gameEngine.leaveGameSession(gameSession.id, userId);
+                            // Handle disconnection gracefully instead of immediately removing player
+                            const updatedSession = gameEngine.handlePlayerDisconnection(userId, gameSession.id);
+                            
                             if (updatedSession) {
-                                // Notify remaining players
-                                io.to(`game_${gameSession.id}`).emit('player-left', {
-                                    gameId: gameSession.id,
-                                    playerId: userId,
-                                    remainingPlayers: updatedSession.players.length,
-                                    gameStatus: updatedSession.status,
-                                    reason: 'Player disconnected'
-                                });
+                                // Leave socket rooms for this game
+                                socket.leave(`game_${gameSession.id}`);
                                 
-                                // If game was cancelled or ended
-                                if (updatedSession.status === 'cancelled' || updatedSession.status === 'finished') {
-                                    io.to(`game_${gameSession.id}`).emit('game-ended', {
+                                // Check if game should continue or be paused
+                                const connectedPlayers = gameEngine.getConnectedPlayers(gameSession.id);
+                                
+                                if (connectedPlayers.length === 0) {
+                                    // All players disconnected, pause the game
+                                    console.log(`⏸️ All players disconnected from game ${gameSession.id}, pausing game`);
+                                    
+                                    // Broadcast game paused state (in case anyone reconnects)
+                                    io.to(`game_${gameSession.id}`).emit('game-paused', {
                                         gameId: gameSession.id,
-                                        reason: updatedSession.status === 'cancelled' ? 'Game cancelled' : 'Insufficient players',
-                                        finalState: updatedSession.gameState
+                                        reason: 'All players disconnected',
+                                        canResume: true,
+                                        pausedAt: Date.now()
                                     });
+                                    
+                                } else if (gameSession.status === 'active' && connectedPlayers.length < gameSession.minPlayers) {
+                                    // Not enough connected players for active game, pause
+                                    console.log(`⏸️ Insufficient connected players in game ${gameSession.id}, pausing game`);
+                                    
+                                    io.to(`game_${gameSession.id}`).emit('game-paused', {
+                                        gameId: gameSession.id,
+                                        reason: 'Insufficient connected players',
+                                        connectedPlayers: connectedPlayers.length,
+                                        requiredPlayers: gameSession.minPlayers,
+                                        canResume: true,
+                                        pausedAt: Date.now()
+                                    });
+                                    
+                                } else {
+                                    // Game can continue, notify remaining players
+                                    io.to(`game_${gameSession.id}`).emit('player-disconnected', {
+                                        gameId: gameSession.id,
+                                        playerId: userId,
+                                        remainingPlayers: connectedPlayers.length,
+                                        gameStatus: gameSession.status,
+                                        reason: 'Player disconnected temporarily',
+                                        currentTurn: gameSession.gameState?.currentTurn
+                                    });
+                                    
+                                    // Broadcast updated game state
+                                    broadcastGameStateToRoom(updatedSession);
                                 }
+                                
+                                // Schedule cleanup if player doesn't reconnect within 5 minutes
+                                setTimeout(() => {
+                                    cleanupDisconnectedPlayer(userId, gameSession.id);
+                                }, 5 * 60 * 1000); // 5 minutes grace period
                             }
                         } catch (error) {
                             console.error('Error handling game cleanup on disconnect:', error);
@@ -852,13 +1104,143 @@ io.on('connection', (socket) => {
                 });
             }
             
-            activeUsers.delete(userId);
+            // Don't immediately remove user - give them a chance to reconnect
+            // Mark as offline but keep in activeUsers for a while
+            if (user) {
+                user.isOnline = false;
+                user.disconnectedAt = Date.now();
+            }
+            
+            // Schedule user cleanup after 10 minutes of being offline
+            setTimeout(() => {
+                cleanupOfflineUser(userId);
+            }, 10 * 60 * 1000); // 10 minutes grace period
+            
+            // Remove from user sessions immediately
             userSessions.delete(socket.id);
         }
         
-        console.log(`Socket disconnected: ${socket.id}`);
+        console.log(`Socket disconnected: ${socket.id} (reason: ${reason})`);
+    });
+
+    // Add reconnection handler
+    socket.on('reconnect-game', (data) => {
+        const { gameId } = data;
+        const userId = userSessions.get(socket.id);
+        
+        if (!userId || !gameId) {
+            socket.emit('reconnect-error', { error: 'Invalid reconnection data' });
+            return;
+        }
+        
+        console.log(`🔄 Player ${userId} attempting to reconnect to game ${gameId}`);
+        
+        try {
+            const gameSession = gameEngine.handlePlayerReconnection(userId, gameId);
+            
+            if (gameSession) {
+                console.log(`✅ Player ${userId} successfully reconnected to game ${gameId}`);
+                
+                // Rejoin socket room
+                socket.join(`game_${gameId}`);
+                
+                // Send current game state
+                socket.emit('game-state-recovery', {
+                    gameId: gameSession.id,
+                    gameSession: gameSession,
+                    isReconnection: true,
+                    yourTurn: gameSession.gameState?.currentTurn === userId,
+                    reconnectedAt: Date.now()
+                });
+                
+                // Notify other players about reconnection
+                socket.to(`game_${gameId}`).emit('player-reconnected', {
+                    gameId: gameSession.id,
+                    playerId: userId,
+                    player: gameSession.players.find(p => p.id === userId),
+                    reconnectedAt: Date.now()
+                });
+                
+                // Check if game can resume
+                const connectedPlayers = gameEngine.getConnectedPlayers(gameId);
+                if (connectedPlayers.length >= gameSession.minPlayers && gameSession.status === 'active') {
+                    io.to(`game_${gameId}`).emit('game-resumed', {
+                        gameId: gameSession.id,
+                        connectedPlayers: connectedPlayers.length,
+                        resumedAt: Date.now()
+                    });
+                }
+                
+                // Broadcast updated game state
+                broadcastGameStateToRoom(gameSession);
+                
+            } else {
+                socket.emit('reconnect-error', { 
+                    error: 'Game not found or player not in game',
+                    gameId: gameId 
+                });
+            }
+        } catch (error) {
+            console.error('Error handling game reconnection:', error);
+            socket.emit('reconnect-error', { 
+                error: error.message,
+                gameId: gameId 
+            });
+        }
     });
 });
+
+// Cleanup functions for disconnected players and offline users
+function cleanupDisconnectedPlayer(playerId, gameId) {
+    const gameSession = gameEngine.getGameSession(gameId);
+    if (!gameSession) return;
+    
+    const player = gameSession.players.find(p => p.id === playerId);
+    if (player && !player.isConnected) {
+        console.log(`🧹 Cleaning up disconnected player ${playerId} from game ${gameId} after grace period`);
+        
+        // Remove player from game after grace period
+        const updatedSession = gameEngine.leaveGameSession(gameId, playerId);
+        if (updatedSession) {
+            // Notify remaining players
+            io.to(`game_${gameId}`).emit('player-left', {
+                gameId: gameId,
+                playerId: playerId,
+                remainingPlayers: updatedSession.players.length,
+                gameStatus: updatedSession.status,
+                reason: 'Player did not reconnect'
+            });
+            
+            // If game was cancelled or ended due to player leaving
+            if (updatedSession.status === 'cancelled' || updatedSession.status === 'finished') {
+                io.to(`game_${gameId}`).emit('game-ended', {
+                    gameId: gameId,
+                    reason: updatedSession.status === 'cancelled' ? 'Game cancelled' : 'Insufficient players',
+                    finalState: updatedSession.gameState
+                });
+            } else {
+                // Broadcast updated game state
+                broadcastGameStateToRoom(updatedSession);
+            }
+        }
+    }
+}
+
+function cleanupOfflineUser(userId) {
+    const user = activeUsers.get(userId);
+    if (user && !user.isOnline) {
+        console.log(`🧹 Cleaning up offline user ${userId} after grace period`);
+        activeUsers.delete(userId);
+        
+        // Remove from any remaining socket sessions
+        for (const [socketId, uId] of userSessions) {
+            if (uId === userId) {
+                userSessions.delete(socketId);
+                break;
+            }
+        }
+    }
+}
 
 // Cleanup old threads and games periodically
 setInterval(() => {

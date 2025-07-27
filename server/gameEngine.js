@@ -1,7 +1,9 @@
-// Game Engine for HushHub Mini-Games Platform
+// Enhanced Game Engine for HushHub Mini-Games Platform with State Synchronization
 class GameEngine {
     constructor() {
         this.activeSessions = new Map();
+        this.playerConnections = new Map(); // Track player connection states
+        this.stateHistory = new Map(); // Store game state history for recovery
         this.gameTypes = {
             "tic-tac-toe": {
                 name: "Tic Tac Toe",
@@ -74,7 +76,9 @@ class GameEngine {
                 isAnonymous: creator.isAnonymous,
                 score: 0,
                 isReady: false,
-                joinedAt: Date.now()
+                joinedAt: Date.now(),
+                isConnected: true,
+                lastSeen: Date.now()
             }],
             gameState: this.initializeGameState(gameConfig.type),
             settings: {
@@ -86,10 +90,17 @@ class GameEngine {
             createdAt: Date.now(),
             startedAt: null,
             finishedAt: null,
-            lastActivity: Date.now()
+            lastActivity: Date.now(),
+            // Enhanced state synchronization fields
+            stateSequence: 0,
+            lastStateUpdate: Date.now(),
+            acknowledgments: new Map(),
+            pendingMoves: new Map()
         };
 
         this.activeSessions.set(gameId, session);
+        this.trackPlayerConnection(creator.id, gameId, true);
+        this.saveGameStateSnapshot(gameId, session);
         return session;
     }
 
@@ -110,7 +121,11 @@ class GameEngine {
         // Check if player is already in the game
         const existingPlayer = session.players.find(p => p.id === player.id);
         if (existingPlayer) {
-            return session; // Already joined
+            // Update connection status if rejoining
+            existingPlayer.isConnected = true;
+            existingPlayer.lastSeen = Date.now();
+            this.trackPlayerConnection(player.id, gameId, true);
+            return session;
         }
 
         session.players.push({
@@ -120,10 +135,15 @@ class GameEngine {
             isAnonymous: player.isAnonymous,
             score: 0,
             isReady: false,
-            joinedAt: Date.now()
+            joinedAt: Date.now(),
+            isConnected: true,
+            lastSeen: Date.now()
         });
 
         session.lastActivity = Date.now();
+        session.stateSequence++;
+        this.trackPlayerConnection(player.id, gameId, true);
+        this.saveGameStateSnapshot(gameId, session);
 
         // Auto-start if conditions are met
         if (session.settings.autoStart && session.players.length >= session.minPlayers) {
@@ -213,40 +233,75 @@ class GameEngine {
             throw new Error("Player not in game");
         }
 
+        if (!player.isConnected) {
+            throw new Error("Player is not connected");
+        }
+
+        // Update player's last seen
+        player.lastSeen = Date.now();
+
         // Validate turn-based games
         if (session.gameState.currentTurn && session.gameState.currentTurn !== playerId) {
             throw new Error("Not your turn");
         }
 
-        // Process move based on game type
-        const result = this.processGameSpecificMove(session, playerId, move);
-        
-        session.lastActivity = Date.now();
-        
-        // Add move to history
-        session.gameState.moves.push({
-            playerId,
-            move,
-            timestamp: Date.now()
-        });
+        // Create a snapshot of the current state for rollback capability
+        const previousState = this.cloneGameState(session.gameState);
+        const previousSequence = session.stateSequence;
 
-        // Check for win condition
-        const winResult = this.checkWinCondition(session);
-        if (winResult.hasWinner) {
-            session.status = "finished";
-            session.finishedAt = Date.now();
-            session.gameState.winner = winResult.winner;
-            session.gameState.winCondition = winResult.condition;
-        } else {
-            // Advance turn for turn-based games
-            this.advanceTurn(session);
+        try {
+            // Process move based on game type
+            const result = this.processGameSpecificMove(session, playerId, move);
+            
+            // Increment state sequence for synchronization
+            session.stateSequence++;
+            session.lastActivity = Date.now();
+            session.lastStateUpdate = Date.now();
+            
+            // Add move to history with sequence number
+            session.gameState.moves.push({
+                id: this.generateMoveId(),
+                playerId,
+                move,
+                timestamp: Date.now(),
+                sequence: session.stateSequence
+            });
+
+            // Check for win condition
+            const winResult = this.checkWinCondition(session);
+            if (winResult.hasWinner) {
+                session.status = "finished";
+                session.finishedAt = Date.now();
+                session.gameState.winner = winResult.winner;
+                session.gameState.winCondition = winResult.condition;
+                session.stateSequence++;
+            } else {
+                // Advance turn for turn-based games
+                this.advanceTurn(session);
+            }
+
+            // Validate state consistency
+            if (!this.isGameStateValid(session)) {
+                throw new Error("Invalid game state detected after move");
+            }
+
+            // Save state snapshot for recovery
+            this.saveGameStateSnapshot(gameId, session);
+
+            return {
+                session,
+                moveResult: result,
+                winResult,
+                stateSequence: session.stateSequence
+            };
+
+        } catch (error) {
+            // Rollback to previous state on error
+            session.gameState = previousState;
+            session.stateSequence = previousSequence;
+            console.error(`Game move failed for game ${gameId}, player ${playerId}:`, error);
+            throw error;
         }
-
-        return {
-            session,
-            moveResult: result,
-            winResult
-        };
     }
 
     initializeGameState(gameType) {
@@ -816,8 +871,173 @@ class GameEngine {
         for (const [gameId, session] of this.activeSessions) {
             if (now - session.lastActivity > maxAge) {
                 this.activeSessions.delete(gameId);
+                this.stateHistory.delete(gameId);
             }
         }
+    }
+
+    // Enhanced state synchronization methods
+    trackPlayerConnection(playerId, gameId, isConnected) {
+        const connectionKey = `${playerId}_${gameId}`;
+        this.playerConnections.set(connectionKey, {
+            playerId,
+            gameId,
+            isConnected,
+            lastSeen: Date.now()
+        });
+    }
+
+    updatePlayerConnectionStatus(playerId, gameId, isConnected) {
+        const session = this.activeSessions.get(gameId);
+        if (session) {
+            const player = session.players.find(p => p.id === playerId);
+            if (player) {
+                player.isConnected = isConnected;
+                player.lastSeen = Date.now();
+                this.trackPlayerConnection(playerId, gameId, isConnected);
+                
+                // Update state sequence to trigger sync
+                session.stateSequence++;
+                session.lastStateUpdate = Date.now();
+            }
+        }
+    }
+
+    saveGameStateSnapshot(gameId, session) {
+        if (!this.stateHistory.has(gameId)) {
+            this.stateHistory.set(gameId, []);
+        }
+        
+        const history = this.stateHistory.get(gameId);
+        const snapshot = {
+            sequence: session.stateSequence,
+            timestamp: Date.now(),
+            gameState: this.cloneGameState(session.gameState),
+            players: session.players.map(p => ({ ...p })),
+            status: session.status
+        };
+        
+        history.push(snapshot);
+        
+        // Keep only last 10 snapshots to prevent memory issues
+        if (history.length > 10) {
+            history.shift();
+        }
+    }
+
+    getGameStateSnapshot(gameId, sequence = null) {
+        const history = this.stateHistory.get(gameId);
+        if (!history || history.length === 0) {
+            return null;
+        }
+        
+        if (sequence === null) {
+            // Return latest snapshot
+            return history[history.length - 1];
+        }
+        
+        // Find snapshot with specific sequence
+        return history.find(snapshot => snapshot.sequence === sequence) || null;
+    }
+
+    cloneGameState(gameState) {
+        return JSON.parse(JSON.stringify(gameState));
+    }
+
+    isGameStateValid(session) {
+        if (!session || !session.gameState) {
+            return false;
+        }
+        
+        // Basic validation checks
+        if (!session.gameState.hasOwnProperty('moves')) {
+            return false;
+        }
+        
+        // Game-specific validation
+        switch (session.type) {
+            case 'tic-tac-toe':
+                return this.validateTicTacToeState(session.gameState);
+            case 'rock-paper-scissors':
+                return this.validateRPSState(session.gameState);
+            default:
+                return true; // Basic validation for other games
+        }
+    }
+
+    validateTicTacToeState(gameState) {
+        const board = gameState.gameData?.board;
+        if (!Array.isArray(board) || board.length !== 9) {
+            return false;
+        }
+        
+        // Count X and O to ensure valid game progression
+        const xCount = board.filter(cell => cell === 'X').length;
+        const oCount = board.filter(cell => cell === 'O').length;
+        
+        // X goes first, so X count should be equal to O count or one more
+        return xCount === oCount || xCount === oCount + 1;
+    }
+
+    validateRPSState(gameState) {
+        const gameData = gameState.gameData;
+        if (!gameData) return false;
+        
+        // Check if round data is consistent
+        if (gameData.currentRound < 1 || gameData.currentRound > gameData.maxRounds + 1) {
+            return false;
+        }
+        
+        return true;
+    }
+
+    generateMoveId() {
+        return 'move_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+    }
+
+    getConnectedPlayers(gameId) {
+        const session = this.activeSessions.get(gameId);
+        if (!session) return [];
+        
+        return session.players.filter(player => player.isConnected);
+    }
+
+    handlePlayerDisconnection(playerId, gameId) {
+        const session = this.activeSessions.get(gameId);
+        if (!session) return null;
+        
+        const player = session.players.find(p => p.id === playerId);
+        if (player) {
+            player.isConnected = false;
+            player.lastSeen = Date.now();
+            this.trackPlayerConnection(playerId, gameId, false);
+            
+            // If game is active and player was current turn, advance turn
+            if (session.status === 'active' && session.gameState.currentTurn === playerId) {
+                this.advanceTurn(session);
+                session.stateSequence++;
+            }
+            
+            this.saveGameStateSnapshot(gameId, session);
+        }
+        
+        return session;
+    }
+
+    handlePlayerReconnection(playerId, gameId) {
+        const session = this.activeSessions.get(gameId);
+        if (!session) return null;
+        
+        const player = session.players.find(p => p.id === playerId);
+        if (player) {
+            player.isConnected = true;
+            player.lastSeen = Date.now();
+            this.trackPlayerConnection(playerId, gameId, true);
+            session.stateSequence++;
+            this.saveGameStateSnapshot(gameId, session);
+        }
+        
+        return session;
     }
 }
 
