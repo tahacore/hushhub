@@ -195,6 +195,49 @@
         </div>
     </div>
 
+    <!-- Game Creation Modal -->
+    <div id="game-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🎮 Create Game</h3>
+                <button id="close-game" class="btn-ghost">&times;</button>
+            </div>
+            <form id="game-form">
+                <div class="form-group">
+                    <label for="game-type">Game Type</label>
+                    <select id="game-type" required>
+                        <option value="">Select a game...</option>
+                        <option value="tic-tac-toe">🎯 Tic Tac Toe</option>
+                        <option value="word-chain">🔤 Word Chain</option>
+                        <option value="trivia">🧠 Quick Trivia</option>
+                        <option value="emoji-guess">🎭 Emoji Guessing</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="game-players">Max Players</label>
+                    <select id="game-players" required>
+                        <option value="2">2 Players</option>
+                        <option value="4">4 Players</option>
+                        <option value="6">6 Players</option>
+                        <option value="8">8 Players</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="game-description">Description (optional)</label>
+                    <textarea id="game-description" placeholder="Add a description..." rows="2"></textarea>
+                </div>
+                <div class="form-actions">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="game-private">
+                        <span class="checkmark"></span>
+                        Private game
+                    </label>
+                    <button type="submit" class="btn-primary">Create Game</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Location Permission Modal -->
     <div id="location-modal" class="modal">
         <div class="modal-content">

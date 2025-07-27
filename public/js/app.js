@@ -8,37 +8,281 @@ class HushHubApp {
         this.currentScreen = 'loading';
         this.nearbyUsers = [];
         this.activeChats = new Map();
+        this.unreadMessages = new Map(); // Initialize unread messages
         
         this.init();
     }
 
     async init() {
         console.log('🤫 Initializing HushHub...');
+        console.log('Step 1: Show loading screen');
         
         // Show loading screen
         this.showScreen('loading');
         
-        // Register service worker
-        await this.registerServiceWorker();
-        
-        // Check if should show iOS PWA install prompt
-        this.checkIOSPWAInstall();
-        
-        // Initialize geolocation
-        this.geolocation = new GeolocationManager();
-        this.backgroundTracker = new BackgroundLocationTracker(this.geolocation);
-        
-        // Set up event listeners
-        this.setupEventListeners();
-        
-        // Check for stored user session
-        const storedUser = this.getStoredUser();
-        if (storedUser) {
-            this.currentUser = storedUser;
-            await this.connectToServer();
-        } else {
+        console.log('Step 2: Set timeout to show nickname screen');
+        // Force proceed to nickname screen after 1 second
+        setTimeout(() => {
+            console.log('🚀 Timeout reached - showing nickname screen');
             this.showScreen('nickname');
+        }, 1000);
+        
+        console.log('Step 3: Setting up basic event listeners');
+        try {
+            // Only setup the most basic event listeners that don't depend on elements
+            this.setupBasicEventListeners();
+            console.log('✅ Basic event listeners setup complete');
+        } catch (error) {
+            console.error('❌ Basic event listeners failed:', error);
         }
+        
+        console.log('Step 4: Check for stored user');
+        try {
+            const storedUser = this.getStoredUser();
+            if (storedUser) {
+                console.log('Found stored user:', storedUser);
+                this.currentUser = storedUser;
+            }
+        } catch (error) {
+            console.error('❌ Stored user check failed:', error);
+        }
+        
+        console.log('Step 5: Initialize background features');
+        // Initialize other features in background after a delay
+        setTimeout(() => {
+            this.initializeBackgroundFeatures();
+        }, 2000);
+        
+        console.log('🎉 Initialization complete - should show nickname screen in 1 second');
+    }
+    
+    setupBasicEventListeners() {
+        console.log('Setting up basic event listeners...');
+        
+        // Only set up document-level listeners that don't depend on specific elements
+        document.addEventListener('click', (e) => {
+            console.log('Click event:', e.target.id, e.target.className);
+            
+            // Handle nickname editing
+            if (e.target.id === 'user-nickname' || e.target.classList.contains('nickname-editable')) {
+                this.editNickname();
+            }
+            
+            // Handle form submission
+            if (e.target.id === 'join-btn') {
+                e.preventDefault();
+                this.handleNicknameSubmit(e);
+            }
+            
+            // Handle tab switching
+            if (e.target.classList.contains('tab-btn')) {
+                const tabName = e.target.dataset.tab;
+                if (tabName) {
+                    console.log('Switching to tab:', tabName);
+                    this.switchTab(tabName);
+                }
+            }
+            
+            // Handle modal opening
+            if (e.target.id === 'create-thread-btn') {
+                console.log('Opening thread modal');
+                this.showModal('thread-modal');
+            }
+            
+            if (e.target.id === 'create-game-btn') {
+                console.log('Opening game modal');
+                this.showModal('game-modal');
+            }
+            
+            // Handle anonymous toggle
+            if (e.target.id === 'toggle-anonymous' || e.target.id === 'anonymous-status') {
+                console.log('Toggling anonymous mode');
+                this.toggleAnonymousMode();
+            }
+            
+            // Handle thread card clicks
+            const threadCard = e.target.closest('.thread-card');
+            if (threadCard) {
+                const threadId = threadCard.dataset.threadId;
+                if (threadId) {
+                    console.log('Joining thread:', threadId);
+                    this.joinThread(threadId);
+                }
+            }
+            
+            // Handle user card clicks  
+            const userCard = e.target.closest('.user-card');
+            if (userCard) {
+                const userId = userCard.dataset.userId;
+                const userName = userCard.dataset.userName;
+                const userAvatar = userCard.dataset.userAvatar;
+                if (userId) {
+                    console.log('Opening chat with user:', userId);
+                    this.openChat(userId, userName, userAvatar);
+                }
+            }
+            
+            // Handle thread reply buttons
+            if (e.target.classList.contains('reply-to-thread-btn')) {
+                const threadId = e.target.dataset.threadId;
+                if (threadId) {
+                    console.log('Replying to thread:', threadId);
+                    this.replyToThread(threadId);
+                }
+            }
+            
+            // Handle location permission buttons
+            if (e.target.id === 'enable-location') {
+                this.enableLocation();
+            }
+            
+            if (e.target.id === 'deny-location') {
+                this.hideModal('location-modal');
+                this.showLocationDeniedMessage();
+            }
+            
+            // Handle quick poll creation
+            if (e.target.classList.contains('create-poll-btn')) {
+                this.createQuickPoll();
+            }
+            
+            // Handle location retry
+            if (e.target.classList.contains('location-retry-header')) {
+                this.requestLocationPermission();
+            }
+            
+            // Handle game actions
+            if (e.target.classList.contains('start-game-btn')) {
+                const gameId = e.target.dataset.gameId;
+                if (gameId && window.gameManager) {
+                    console.log('Start game button clicked:', gameId);
+                    window.gameManager.startGame(gameId);
+                }
+            }
+            
+            if (e.target.classList.contains('leave-game-btn')) {
+                const gameId = e.target.dataset.gameId;
+                if (gameId && window.gameManager) {
+                    console.log('Leave game button clicked:', gameId);
+                    window.gameManager.leaveGame(gameId);
+                }
+            }
+            
+            if (e.target.classList.contains('open-game-btn')) {
+                const gameId = e.target.dataset.gameId;
+                if (gameId && window.gameManager) {
+                    console.log('Open game button clicked:', gameId);
+                    window.gameManager.openGameInterface(gameId);
+                }
+            }
+            
+            // Handle modal closing
+            if (e.target.id === 'close-thread' || e.target.id === 'close-chat' || e.target.id === 'close-game') {
+                console.log('Closing modal');
+                const modal = e.target.closest('.modal');
+                if (modal) {
+                    this.hideModal(modal.id);
+                }
+            }
+            
+            // Handle game lobby closing
+            if (e.target.classList.contains('close-game-lobby')) {
+                console.log('Closing game lobby');
+                const modal = e.target.closest('.modal');
+                if (modal) {
+                    this.hideModal(modal.id);
+                }
+            }
+            
+            // Handle game play interface closing
+            if (e.target.classList.contains('close-game-play')) {
+                console.log('Close game play interface button clicked via app.js');
+                if (window.gameManager) {
+                    window.gameManager.closeGameInterface();
+                }
+                return; // Prevent further event handling
+            }
+            
+            // Handle tic-tac-toe board clicks
+            if (e.target.classList.contains('board-cell')) {
+                const position = parseInt(e.target.dataset.position);
+                const modal = e.target.closest('.modal');
+                const gameId = modal?.id?.replace('game-play-', '');
+                
+                if (!isNaN(position) && gameId && window.gameManager) {
+                    console.log('Board cell clicked:', position, 'for game:', gameId);
+                    window.gameManager.makeTicTacToeMove(gameId, position);
+                }
+            }
+        });
+        
+        // Handle form submissions
+        document.addEventListener('submit', (e) => {
+            console.log('Form submitted:', e.target.id);
+            
+            if (e.target.id === 'thread-form') {
+                e.preventDefault();
+                console.log('Handling thread form submission');
+                this.handleThreadSubmit(e);
+            }
+            
+            if (e.target.id === 'nickname-form') {
+                e.preventDefault();
+                console.log('Handling nickname form submission');
+                this.handleNicknameSubmit(e);
+            }
+            
+            if (e.target.id === 'game-form') {
+                e.preventDefault();
+                console.log('Handling game form submission');
+                this.handleGameSubmit(e);
+            }
+        });
+        
+        console.log('Basic click listeners setup complete');
+    }
+    
+    initializeBackgroundFeatures() {
+        // Register service worker in background
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(err => {
+                console.warn('Service worker registration failed:', err);
+            });
+        }
+        
+        // Initialize modal controls now that DOM is ready
+        this.setupModalControls();
+        
+        // Initialize geolocation in background
+        try {
+            this.geolocation = new GeolocationManager();
+            this.backgroundTracker = new BackgroundLocationTracker(this.geolocation);
+            
+            // Setup geolocation event listeners now that geolocation is available
+            this.setupGeolocationEventListeners();
+            
+        } catch (err) {
+            console.warn('Geolocation initialization failed:', err);
+        }
+        
+        // Check iOS PWA prompt
+        this.checkIOSPWAInstall();
+    }
+
+    setupGeolocationEventListeners() {
+        if (!this.geolocation) return;
+        
+        this.geolocation.on('onLocationUpdate', (position) => {
+            this.handleLocationUpdate(position);
+        });
+
+        this.geolocation.on('onUsersNearby', (users) => {
+            this.updateNearbyUsersList(users);
+        });
+
+        this.geolocation.on('onLocationError', (error) => {
+            this.handleLocationError(error);
+        });
     }
 
     checkIOSPWAInstall() {
@@ -175,169 +419,40 @@ class HushHubApp {
         }
     }
 
-    setupEventListeners() {
-        // Nickname form
-        const nicknameForm = document.getElementById('nickname-form');
-        nicknameForm.addEventListener('submit', (e) => this.handleNicknameSubmit(e));
-
-        // Nickname editing
-        document.addEventListener('click', (e) => {
-            if (e.target.id === 'user-nickname' || e.target.classList.contains('nickname-editable')) {
-                this.editNickname();
-            }
-        });
-
-        // Tab navigation
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
-        });
-
-        // Modal controls
-        this.setupModalControls();
-
-        // Location permission
-        document.getElementById('enable-location').addEventListener('click', () => {
-            this.enableLocation();
-        });
-
-        document.getElementById('deny-location').addEventListener('click', () => {
-            this.hideModal('location-modal');
-            this.showLocationDeniedMessage();
-        });
-
-        // Anonymous toggle
-        document.getElementById('toggle-anonymous').addEventListener('click', () => {
-            this.toggleAnonymousMode();
-        });
-
-        // Thread creation
-        document.getElementById('create-thread-btn').addEventListener('click', () => {
-            this.showModal('thread-modal');
-        });
-
-        document.getElementById('thread-form').addEventListener('submit', (e) => {
-            this.handleThreadSubmit(e);
-        });
-
-        // Games creation button
-        document.addEventListener('click', (e) => {
-            if (e.target.id === 'create-game-btn') {
-                // Let games.js handle the game creation modal
-                if (window.gameManager) {
-                    window.gameManager.showGameCreationModal();
-                } else {
-                    console.warn('Game manager not initialized yet');
-                }
-            } else if (e.target.classList.contains('create-poll-btn')) {
-                this.createQuickPoll();
-            }
-        });
-
-        // User card clicks (event delegation)
-        document.addEventListener('click', (e) => {
-            const userCard = e.target.closest('.user-card');
-            if (userCard) {
-                const userId = userCard.dataset.userId;
-                const userName = userCard.dataset.userName;
-                const userAvatar = userCard.dataset.userAvatar;
-                this.openChat(userId, userName, userAvatar);
-            }
-        });
-
-        // Thread card clicks (event delegation)
-        document.addEventListener('click', (e) => {
-            const threadCard = e.target.closest('.thread-card');
-            if (threadCard) {
-                const threadId = threadCard.dataset.threadId;
-                this.joinThread(threadId);
-            }
-        });
-
-        // Thread reply button clicks (event delegation)
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('reply-to-thread-btn')) {
-                const threadId = e.target.dataset.threadId;
-                this.replyToThread(threadId);
-            }
-        });
-
-        // Location retry button clicks (event delegation)
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('location-retry-header')) {
-                this.requestLocationPermission();
-            }
-        });
-
-        // Game card clicks (event delegation)
-        document.addEventListener('click', (e) => {
-            const gameCard = e.target.closest('.game-card');
-            if (gameCard && window.gameManager) {
-                const gameId = gameCard.dataset.gameId;
-                window.gameManager.joinGame(gameId);
-            }
-        });
-
-        // Game action buttons (event delegation)
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('word-submit-btn') && window.gameManager) {
-                const gameId = e.target.dataset.gameId;
-                window.gameManager.submitWord(gameId);
-            } else if (e.target.classList.contains('guess-submit-btn') && window.gameManager) {
-                const gameId = e.target.dataset.gameId;
-                window.gameManager.submitGuess(gameId);
-            } else if (e.target.classList.contains('trivia-option') && window.gameManager) {
-                const gameId = e.target.dataset.gameId;
-                const answerIndex = e.target.dataset.answerIndex;
-                window.gameManager.submitAnswer(gameId, parseInt(answerIndex));
-            }
-        });
-
-        // Geolocation events
-        this.geolocation.on('onLocationUpdate', (position) => {
-            this.handleLocationUpdate(position);
-        });
-
-        this.geolocation.on('onUsersNearby', (users) => {
-            this.updateNearbyUsersList(users);
-        });
-
-        this.geolocation.on('onLocationError', (error) => {
-            this.handleLocationError(error);
-        });
-
-        // Visibility change (app going to background/foreground)
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                this.backgroundTracker.startTracking();
-            } else {
-                this.backgroundTracker.stopTracking();
-                if (this.geolocation.currentPosition) {
-                    this.geolocation.startWatching();
-                }
-            }
-        });
-    }
+    // Legacy setupEventListeners function removed - functionality moved to setupBasicEventListeners
 
     setupModalControls() {
         // Chat modal
-        document.getElementById('close-chat').addEventListener('click', () => {
-            this.hideModal('chat-modal');
-        });
+        const closeChatBtn = document.getElementById('close-chat');
+        if (closeChatBtn) {
+            closeChatBtn.addEventListener('click', () => {
+                this.hideModal('chat-modal');
+            });
+        }
 
-        document.getElementById('send-btn').addEventListener('click', () => {
-            this.sendMessage();
-        });
-
-        document.getElementById('message-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+        const sendBtn = document.getElementById('send-btn');
+        if (sendBtn) {
+            sendBtn.addEventListener('click', () => {
                 this.sendMessage();
-            }
-        });
+            });
+        }
+
+        const messageInput = document.getElementById('message-input');
+        if (messageInput) {
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.sendMessage();
+                }
+            });
+        }
 
         // Thread modal
-        document.getElementById('close-thread').addEventListener('click', () => {
-            this.hideModal('thread-modal');
-        });
+        const closeThreadBtn = document.getElementById('close-thread');
+        if (closeThreadBtn) {
+            closeThreadBtn.addEventListener('click', () => {
+                this.hideModal('thread-modal');
+            });
+        }
 
         // Close modals when clicking outside
         document.querySelectorAll('.modal').forEach(modal => {
@@ -456,6 +571,49 @@ class HushHubApp {
 
             this.socket.on('thread-reply', (reply) => {
                 this.handleThreadReply(reply);
+            });
+
+            // Game events - delegate to game manager
+            this.socket.on('game-created', (data) => {
+                if (window.gameManager) {
+                    window.gameManager.handleGameCreated(data);
+                }
+            });
+
+            this.socket.on('new-game-available', (game) => {
+                if (window.gameManager) {
+                    window.gameManager.handleNewGameAvailable(game);
+                }
+            });
+
+            this.socket.on('game-joined', (data) => {
+                if (window.gameManager) {
+                    window.gameManager.handleGameJoined(data);
+                }
+            });
+
+            this.socket.on('player-joined', (data) => {
+                if (window.gameManager) {
+                    window.gameManager.handlePlayerJoined(data);
+                }
+            });
+
+            this.socket.on('game-left', (data) => {
+                if (window.gameManager) {
+                    window.gameManager.handlePlayerLeft(data);
+                }
+            });
+
+            this.socket.on('game-started', (data) => {
+                if (window.gameManager) {
+                    window.gameManager.handleGameStarted(data);
+                }
+            });
+
+            this.socket.on('nearby-games', (games) => {
+                if (window.gameManager) {
+                    window.gameManager.updateNearbyGames(games);
+                }
             });
 
             this.socket.on('disconnect', () => {
@@ -686,24 +844,43 @@ class HushHubApp {
 
     sendMessage() {
         const input = document.getElementById('message-input');
-        const message = input.value.trim();
         const messagesContainer = document.getElementById('chat-messages');
+        
+        if (!input || !messagesContainer) {
+            console.error('Chat elements not found:', { input, messagesContainer });
+            alert('Chat interface error. Please refresh the page.');
+            return;
+        }
+        
+        const message = input.value.trim();
         const recipientId = messagesContainer.dataset.userId;
         
         console.log('Sending message:', { message, recipientId, currentUser: this.currentUser });
         
-        if (!message || !recipientId) {
-            console.error('Missing message or recipient ID');
+        if (!message) {
+            console.log('Empty message, not sending');
+            return;
+        }
+        
+        if (!recipientId) {
+            console.error('No recipient ID found');
+            alert('Please select a user to chat with.');
             return;
         }
 
         if (!this.socket || !this.socket.connected) {
             console.error('Socket not connected');
-            alert('Connection lost. Please wait...');
+            alert('Connection lost. Please wait for reconnection...');
+            return;
+        }
+        
+        if (!this.currentUser) {
+            console.error('No current user');
+            alert('Please set your nickname first.');
             return;
         }
 
-        // Add message to UI immediately
+        // Add message to UI immediately (optimistic update)
         this.addMessageToChat(messagesContainer, {
             content: message,
             isOwn: true,
@@ -715,10 +892,14 @@ class HushHubApp {
         this.socket.emit('send-message', {
             recipientId: recipientId,
             message: message,
-            isAnonymous: this.currentUser.isAnonymous
+            isAnonymous: this.currentUser.isAnonymous || false
         });
 
+        // Clear input
         input.value = '';
+        
+        // Show feedback
+        console.log('Message sent to server');
     }
 
     handleIncomingMessage(message) {
@@ -870,9 +1051,22 @@ class HushHubApp {
     }
 
     toggleAnonymousMode() {
-        if (this.socket && this.socket.connected) {
-            this.socket.emit('toggle-anonymous');
+        if (!this.socket || !this.socket.connected) {
+            alert('Please wait for connection to be established.');
+            return;
         }
+        
+        // Immediately toggle the UI while waiting for server response
+        this.currentUser.isAnonymous = !this.currentUser.isAnonymous;
+        this.updateUserDisplay();
+        this.saveUserSession();
+        
+        // Send to server
+        this.socket.emit('toggle-anonymous');
+        
+        // Show feedback
+        const statusText = this.currentUser.isAnonymous ? 'Anonymous mode enabled' : 'Anonymous mode disabled';
+        this.showInAppNotification(statusText);
     }
 
     updateUserDisplay() {
@@ -905,6 +1099,38 @@ class HushHubApp {
 
         this.hideModal('thread-modal');
         document.getElementById('thread-form').reset();
+    }
+
+    handleGameSubmit(e) {
+        e.preventDefault();
+        
+        const gameType = document.getElementById('game-type').value;
+        const maxPlayers = parseInt(document.getElementById('game-players').value);
+        const description = document.getElementById('game-description').value.trim();
+        const isPrivate = document.getElementById('game-private').checked;
+        
+        if (!gameType) {
+            alert('Please select a game type');
+            return;
+        }
+
+        if (!this.socket || !this.socket.connected) {
+            alert('Connection required to create games. Please wait...');
+            return;
+        }
+
+        console.log('Creating game:', { gameType, maxPlayers, description, isPrivate });
+
+        this.socket.emit('create-game', {
+            type: gameType,
+            maxPlayers: maxPlayers,
+            description: description,
+            isPrivate: isPrivate
+        });
+
+        this.hideModal('game-modal');
+        document.getElementById('game-form').reset();
+        this.showInAppNotification('🎮 Game created successfully!');
     }
 
     handleNewThread(thread) {
@@ -981,6 +1207,11 @@ class HushHubApp {
             return;
         }
         
+        // Ensure thread has replies array
+        if (!thread.replies) {
+            thread.replies = [];
+        }
+        
         // Close any existing thread modals
         document.querySelectorAll('.thread-detail-modal').forEach(modal => {
             modal.remove();
@@ -995,6 +1226,12 @@ class HushHubApp {
             setTimeout(() => {
                 threadDetailModal.classList.add('active');
                 console.log('Thread detail modal shown');
+                
+                // Focus on the reply textarea
+                const replyTextarea = document.getElementById(`reply-content-${thread.id}`);
+                if (replyTextarea) {
+                    setTimeout(() => replyTextarea.focus(), 100);
+                }
             }, 100);
         } catch (error) {
             console.error('Error creating thread modal:', error);
@@ -1080,18 +1317,45 @@ class HushHubApp {
     }
 
     replyToThread(threadId) {
-        const content = document.getElementById(`reply-content-${threadId}`).value.trim();
-        const isAnonymous = document.getElementById(`reply-anonymous-${threadId}`).checked;
+        console.log('Replying to thread:', threadId);
         
-        if (!content) return;
+        if (!this.socket || !this.socket.connected) {
+            alert('Connection required to reply. Please wait...');
+            return;
+        }
+        
+        const contentElement = document.getElementById(`reply-content-${threadId}`);
+        const anonymousElement = document.getElementById(`reply-anonymous-${threadId}`);
+        
+        if (!contentElement) {
+            console.error('Reply content element not found for thread:', threadId);
+            return;
+        }
+        
+        const content = contentElement.value.trim();
+        const isAnonymous = anonymousElement ? anonymousElement.checked : false;
+        
+        if (!content) {
+            alert('Please enter a reply message.');
+            return;
+        }
 
+        console.log('Sending thread reply:', { threadId, content, isAnonymous });
+        
         this.socket.emit('reply-thread', {
             threadId: threadId,
             content: content,
             isAnonymous: isAnonymous
         });
 
-        document.getElementById(`reply-content-${threadId}`).value = '';
+        // Clear the form
+        contentElement.value = '';
+        if (anonymousElement) {
+            anonymousElement.checked = false;
+        }
+        
+        // Show feedback
+        this.showInAppNotification('Reply sent!');
     }
 
     handleThreadReply(reply) {
@@ -1121,14 +1385,20 @@ class HushHubApp {
     }
 
     switchTab(tabName) {
+        console.log(`🔄 Switching to tab: ${tabName}`);
+        
         // Update tab buttons
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.tab === tabName);
+            const isActive = btn.dataset.tab === tabName;
+            console.log(`Tab button ${btn.dataset.tab}: ${isActive ? 'ACTIVE' : 'inactive'}`);
+            btn.classList.toggle('active', isActive);
         });
 
         // Update tab panels
         document.querySelectorAll('.tab-panel').forEach(panel => {
-            panel.classList.toggle('active', panel.id === `${tabName}-tab`);
+            const isActive = panel.id === `${tabName}-tab`;
+            console.log(`Tab panel ${panel.id}: ${isActive ? 'ACTIVE' : 'inactive'}`);
+            panel.classList.toggle('active', isActive);
         });
 
         // Load tab-specific data
@@ -1137,6 +1407,8 @@ class HushHubApp {
         } else if (tabName === 'games') {
             this.loadNearbyGames();
         }
+        
+        console.log(`✅ Tab switched to: ${tabName}`);
     }
 
     loadNearbyThreads() {
@@ -1146,36 +1418,12 @@ class HushHubApp {
     }
 
     loadNearbyGames() {
-        // Simple games interface
-        const gamesList = document.getElementById('games-list');
-        if (!gamesList) return;
-        
-        gamesList.innerHTML = `
-            <div style="text-align: center; padding: 40px 20px;">
-                <div style="font-size: 48px; margin-bottom: 20px;">🎮</div>
-                <h3 style="margin: 0 0 15px 0; color: #333;">Mini Games</h3>
-                <p style="margin: 0 0 30px 0; color: #666;">Quick games to play with nearby users</p>
-                
-                <button class="create-poll-btn" style="
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white; border: none; padding: 15px 30px; border-radius: 25px;
-                    font-size: 16px; font-weight: bold; margin: 10px;
-                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-                ">
-                    📊 Create Quick Poll
-                </button>
-                
-                <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px; text-align: left;">
-                    <div style="font-weight: bold; margin-bottom: 10px;">🚀 Coming Soon:</div>
-                    <div style="color: #666; font-size: 14px; line-height: 1.6;">
-                        • 🔤 Word Chain Game<br>
-                        • 🎭 Emoji Guessing<br>
-                        • 🧠 Local Trivia<br>
-                        • 🎯 Quick Challenges
-                    </div>
-                </div>
-            </div>
-        `;
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('get-nearby-games');
+        } else if (window.gameManager) {
+            // Load games using game manager if available
+            window.gameManager.loadNearbyGames();
+        }
     }
     
     createQuickPoll() {
@@ -1252,25 +1500,46 @@ class HushHubApp {
     }
 
     showScreen(screenName) {
+        console.log(`🔄 Switching to screen: ${screenName}`);
+        
+        const targetScreen = document.getElementById(`${screenName}-screen`);
+        console.log(`Target screen element:`, targetScreen);
+        
         document.querySelectorAll('.screen').forEach(screen => {
-            screen.classList.toggle('active', screen.id === `${screenName}-screen`);
+            const isActive = screen.id === `${screenName}-screen`;
+            console.log(`Screen ${screen.id}: ${isActive ? 'ACTIVE' : 'inactive'}`);
+            screen.classList.toggle('active', isActive);
         });
+        
         this.currentScreen = screenName;
+        console.log(`✅ Screen switched to: ${screenName}`);
     }
 
     showModal(modalId) {
+        console.log(`🔄 Opening modal: ${modalId}`);
         const modal = document.getElementById(modalId);
+        console.log(`Modal element:`, modal);
+        
         if (modal) {
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
+            console.log(`✅ Modal ${modalId} opened`);
+        } else {
+            console.error(`❌ Modal ${modalId} not found`);
         }
     }
 
     hideModal(modalId) {
+        console.log(`🔄 Closing modal: ${modalId}`);
         const modal = document.getElementById(modalId);
+        console.log(`Modal element:`, modal);
+        
         if (modal) {
             modal.classList.remove('active');
             document.body.style.overflow = '';
+            console.log(`✅ Modal ${modalId} closed`);
+        } else {
+            console.error(`❌ Modal ${modalId} not found`);
         }
     }
 
