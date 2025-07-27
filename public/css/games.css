@@ -1,5 +1,95 @@
-/* Enhanced Game Platform Styles with State Synchronization Support
+/* Enhanced Game Platform Styles with Premium Design
    ============================================ */
+
+/* Game Typography */
+.game-option h4,
+.game-info h4,
+.game-card h4,
+.lobby-title-info h3 {
+    font-family: var(--font-accent);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+}
+
+.game-option p,
+.game-info p,
+.game-card-body p {
+    font-family: var(--font-secondary);
+    font-weight: 500;
+}
+
+/* Enhanced Game Option Cards */
+.game-option.enhanced {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface-alt) 100%);
+    border: 2px solid var(--border);
+    transition: all var(--transition-normal);
+}
+
+.game-option.enhanced:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: var(--glass-shadow);
+    border-color: var(--primary-solid);
+    background: linear-gradient(135deg, var(--card-hover) 0%, var(--surface) 100%);
+}
+
+.game-option.enhanced.selected {
+    border-color: var(--primary-solid);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: var(--shadow-glow);
+}
+
+/* Game Creation Modal Enhancements */
+.modal-header {
+    background: var(--primary);
+    color: var(--text-white);
+}
+
+.modal-header h3 {
+    font-family: var(--font-accent);
+    font-weight: 800;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Game Status and Interface Colors */
+.game-status.waiting {
+    background: linear-gradient(135deg, var(--warning) 0%, #f59e0b 100%);
+    color: white;
+}
+
+.game-status.active {
+    background: linear-gradient(135deg, var(--success) 0%, #06d6a0 100%);
+    color: white;
+}
+
+.game-status.finished {
+    background: linear-gradient(135deg, var(--text-muted) 0%, #94a3b8 100%);
+    color: white;
+}
+
+/* Enhanced Button Colors */
+.btn-primary {
+    background: var(--primary);
+    border: none;
+    font-family: var(--font-primary);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.btn-ghost {
+    background: transparent;
+    border: 2px solid var(--border);
+    color: var(--text-secondary);
+    font-family: var(--font-primary);
+    font-weight: 600;
+}
+
+.btn-ghost:hover {
+    border-color: var(--primary-solid);
+    color: var(--primary-solid);
+    background: rgba(102, 126, 234, 0.05);
+}
 
 /* Reconnection and Connection Status Overlays */
 .reconnection-overlay {
@@ -1552,27 +1642,30 @@
 
 /* Game Play Interface */
 .game-play-modal .modal-content {
-    max-width: 800px;
+    max-width: 1000px;
     width: 95vw;
-    max-height: 90vh;
+    max-height: 95vh;
+    overflow: hidden;
 }
 
 .game-play-body {
-    display: grid;
-    grid-template-columns: 1fr 200px;
-    gap: var(--spacing-lg);
-    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    max-height: calc(95vh - 100px);
+    overflow-y: auto;
 }
 
 .game-status-bar {
-    grid-column: 1 / -1;
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: var(--spacing-md);
     background: var(--surface-alt);
     border-radius: var(--radius-md);
-    margin-bottom: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
+    flex-shrink: 0;
 }
 
 .turn-indicator {
@@ -1585,17 +1678,31 @@
     color: var(--warning);
 }
 
+.game-main-content {
+    display: flex;
+    gap: var(--spacing-lg);
+    flex: 1;
+    min-height: 0;
+}
+
 .game-interface {
+    flex: 1;
     background: var(--surface);
     border-radius: var(--radius-lg);
     padding: var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     min-height: 400px;
 }
 
 .game-players-sidebar {
+    flex: 0 0 220px;
     background: var(--surface-alt);
     border-radius: var(--radius-lg);
     padding: var(--spacing-lg);
+    max-height: 500px;
+    overflow-y: auto;
 }
 
 .game-players-sidebar h4 {
@@ -1638,16 +1745,18 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--spacing-xl);
-    padding: var(--spacing-lg);
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md);
+    width: 100%;
+    max-width: 100%;
 }
 
 .game-status-info {
     text-align: center;
     background: var(--surface-alt);
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
     border-radius: var(--radius-lg);
-    margin-bottom: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
     border: 2px solid var(--border);
     width: 100%;
     max-width: 400px;
@@ -1656,13 +1765,13 @@
 .game-status-info h4 {
     color: var(--text-primary);
     margin-bottom: var(--spacing-sm);
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 600;
     text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .my-symbol {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     font-weight: bold;
     background: var(--primary);
     background-clip: text;
@@ -1675,49 +1784,54 @@
     padding: var(--spacing-sm) var(--spacing-md);
     border-radius: var(--radius-md);
     font-weight: 600;
-    font-size: 1rem;
+    font-size: 0.95rem;
 }
 
 .turn-status.my-turn {
-    background: rgba(16, 185, 129, 0.15);
-    color: var(--success);
+    background: linear-gradient(135deg, var(--success) 0%, var(--teal) 100%);
+    color: white;
     border: 2px solid var(--success);
     animation: turnGlow 2s infinite;
+    box-shadow: 0 4px 15px rgba(6, 214, 160, 0.3);
 }
 
 .turn-status.wait-turn {
-    background: rgba(245, 158, 11, 0.15);
-    color: var(--warning);
+    background: linear-gradient(135deg, var(--warning) 0%, var(--orange) 100%);
+    color: white;
     border: 2px solid var(--warning);
 }
 
 .game-board-container {
     display: flex;
     justify-content: center;
-    padding: var(--spacing-lg);
-    background: var(--surface);
+    padding: var(--spacing-md);
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface-alt) 100%);
     border-radius: var(--radius-xl);
     border: 2px solid var(--border);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--glass-shadow);
+    width: 100%;
+    max-width: 350px;
 }
 
 .tic-tac-toe-board {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: var(--spacing-sm);
-    padding: var(--spacing-lg);
-    background: var(--surface-alt);
+    padding: var(--spacing-md);
+    background: linear-gradient(135deg, var(--surface-alt) 0%, var(--card-bg) 100%);
     border-radius: var(--radius-lg);
     border: 1px solid var(--border);
+    width: 100%;
+    max-width: 300px;
 }
 
 .board-cell {
-    width: 90px;
-    height: 90px;
-    background: var(--surface);
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, var(--surface) 0%, var(--card-bg) 100%);
     border: 3px solid var(--border);
-    border-radius: var(--radius-lg);
-    font-size: 2.5rem;
+    border-radius: var(--radius-md);
+    font-size: 2rem;
     font-weight: bold;
     color: var(--text-primary);
     cursor: pointer;
@@ -1727,7 +1841,7 @@
     justify-content: center;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .board-cell::before {
@@ -1747,10 +1861,11 @@
 }
 
 .board-cell.available:hover:not(:disabled) {
-    background: var(--primary-light);
-    transform: translateY(-2px) scale(1.05);
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--accent-solid) 100%);
+    transform: translateY(-3px) scale(1.05);
     border-color: var(--primary-solid);
-    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    color: white;
 }
 
 .board-cell.available:hover .cell-content::after {
@@ -1761,7 +1876,7 @@
 
 .board-cell.filled {
     cursor: not-allowed;
-    background: var(--surface-alt);
+    background: linear-gradient(135deg, var(--surface-alt) 0%, var(--card-hover) 100%);
     border-color: var(--success);
     animation: cellFilled 0.3s ease;
 }
@@ -1785,17 +1900,19 @@
 .game-instructions {
     text-align: center;
     background: var(--surface);
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
     border-radius: var(--radius-lg);
     border: 1px solid var(--border);
     width: 100%;
     max-width: 400px;
+    margin-top: var(--spacing-sm);
 }
 
 .game-instructions p {
-    margin-bottom: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
     color: var(--text-secondary);
     font-weight: 500;
+    font-size: 0.9rem;
     text-shadow: 0 1px 1px rgba(255, 255, 255, 0.7);
 }
 
@@ -2216,50 +2333,95 @@ canvas {
     }
     
     /* Game Play Interface Mobile */
+    .game-play-modal .modal-content {
+        width: 98vw;
+        max-height: 98vh;
+        margin: 1vh auto;
+    }
+    
     .game-play-body {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto auto 1fr;
-        padding: var(--spacing-md);
+        flex-direction: column;
+        padding: var(--spacing-sm);
+        gap: var(--spacing-sm);
+    }
+    
+    .game-main-content {
+        flex-direction: column;
         gap: var(--spacing-md);
     }
     
     .game-players-sidebar {
+        flex: none;
         order: -1;
         padding: var(--spacing-md);
+        max-height: 150px;
     }
     
     .game-players-list {
         flex-direction: row;
         overflow-x: auto;
         padding-bottom: var(--spacing-sm);
+        gap: var(--spacing-sm);
     }
     
     .game-player {
-        min-width: 120px;
+        min-width: 100px;
+        flex-shrink: 0;
+    }
+    
+    .game-interface {
+        min-height: 300px;
+        padding: var(--spacing-md);
+    }
+    
+    .tic-tac-toe-game {
+        gap: var(--spacing-md);
+        padding: var(--spacing-sm);
+    }
+    
+    .game-board-container {
+        max-width: 280px;
+        padding: var(--spacing-sm);
+    }
+    
+    .tic-tac-toe-board {
+        max-width: 250px;
+        padding: var(--spacing-sm);
+        gap: var(--spacing-xs);
     }
     
     .board-cell {
-        width: 60px;
-        height: 60px;
+        width: 70px;
+        height: 70px;
         font-size: 1.8rem;
     }
     
     .game-status-info {
-        padding: var(--spacing-md);
-        margin-bottom: var(--spacing-md);
+        padding: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
     }
     
-    .game-board-container {
-        padding: var(--spacing-md);
+    .game-status-info h4 {
+        font-size: 1rem;
     }
     
-    .tic-tac-toe-board {
-        padding: var(--spacing-md);
-        gap: var(--spacing-xs);
+    .my-symbol {
+        font-size: 1.2rem;
+    }
+    
+    .turn-status {
+        font-size: 0.85rem;
+        padding: var(--spacing-xs) var(--spacing-sm);
     }
     
     .game-instructions {
-        padding: var(--spacing-md);
+        padding: var(--spacing-sm);
+        margin-top: var(--spacing-xs);
+    }
+    
+    .game-instructions p {
+        font-size: 0.8rem;
+        margin-bottom: var(--spacing-xs);
     }
     
     .rps-choices {
@@ -2310,23 +2472,70 @@ canvas {
         text-align: center;
     }
     
+    .game-play-modal .modal-content {
+        width: 100vw;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+        margin: 0;
+    }
+    
+    .game-play-body {
+        padding: var(--spacing-xs);
+        gap: var(--spacing-xs);
+        height: 100%;
+    }
+    
+    .game-board-container {
+        max-width: 240px;
+        padding: var(--spacing-xs);
+    }
+    
+    .tic-tac-toe-board {
+        max-width: 210px;
+        padding: var(--spacing-xs);
+        gap: 2px;
+    }
+    
     .board-cell {
-        width: 50px;
-        height: 50px;
-        font-size: 1.4rem;
+        width: 60px;
+        height: 60px;
+        font-size: 1.5rem;
+        border-width: 2px;
+    }
+    
+    .game-status-info {
+        padding: var(--spacing-xs);
+        margin-bottom: var(--spacing-xs);
     }
     
     .game-status-info h4 {
-        font-size: 1rem;
+        font-size: 0.9rem;
+        margin-bottom: var(--spacing-xs);
     }
     
     .my-symbol {
-        font-size: 1.2rem;
+        font-size: 1.1rem;
+    }
+    
+    .turn-status {
+        font-size: 0.8rem;
+        padding: var(--spacing-xs);
     }
     
     .tic-tac-toe-game {
-        padding: var(--spacing-md);
-        gap: var(--spacing-md);
+        padding: var(--spacing-xs);
+        gap: var(--spacing-sm);
+    }
+    
+    .game-instructions {
+        padding: var(--spacing-xs);
+        margin-top: 0;
+    }
+    
+    .game-instructions p {
+        font-size: 0.75rem;
+        margin-bottom: 2px;
     }
     
     .game-actions {

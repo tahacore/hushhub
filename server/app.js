@@ -1027,24 +1027,32 @@ io.on('connection', (socket) => {
         if (userId) {
             const user = activeUsers.get(userId);
             if (user) {
-                console.log(`User ${user.nickname} disconnected (reason: ${reason})`);
+                console.log(`User ${user.nickname} disconnected (reason: ${reason}) - removing immediately`);
                 
-                // Remove from nearby users for all other users
-                if (user.location) {
-                    const nearbyUsers = getNearbyUsers(user);
-                    nearbyUsers.forEach(nearbyUser => {
-                        const nearbySocket = [...userSessions.entries()]
-                            .find(([, id]) => id === nearbyUser.id)?.[0];
-                        
-                        if (nearbySocket) {
-                            const socketInstance = io.sockets.sockets.get(nearbySocket);
-                            if (socketInstance) {
-                                const updatedNearby = getNearbyUsers(activeUsers.get(nearbyUser.id));
-                                socketInstance.emit('nearby-users', updatedNearby);
-                            }
+                // Get nearby users before removing this user
+                const nearbyUsers = user.location ? getNearbyUsers(user) : [];
+                
+                // IMMEDIATELY remove user from active users
+                activeUsers.delete(userId);
+                userSessions.delete(socket.id);
+                
+                console.log(`✅ User ${user.nickname} removed immediately from active users`);
+                
+                // Notify nearby users that this user has been removed
+                nearbyUsers.forEach(nearbyUser => {
+                    const nearbySocket = [...userSessions.entries()]
+                        .find(([, id]) => id === nearbyUser.id)?.[0];
+                    
+                    if (nearbySocket) {
+                        const socketInstance = io.sockets.sockets.get(nearbySocket);
+                        if (socketInstance) {
+                            // Send updated nearby users list without the disconnected user
+                            const updatedNearby = getNearbyUsers(activeUsers.get(nearbyUser.id));
+                            socketInstance.emit('nearby-users', updatedNearby);
+                            console.log(`📡 Sent updated nearby users to ${nearbyUser.id} (removed ${user.nickname})`);
                         }
-                    });
-                }
+                    }
+                });
             }
             
             // Enhanced game cleanup with graceful disconnection handling
@@ -1106,10 +1114,8 @@ io.on('connection', (socket) => {
                                     broadcastGameStateToRoom(updatedSession);
                                 }
                                 
-                                // Schedule cleanup if player doesn't reconnect within 5 minutes
-                                setTimeout(() => {
-                                    cleanupDisconnectedPlayer(userId, gameSession.id);
-                                }, 5 * 60 * 1000); // 5 minutes grace period
+                                // For non-game users, user is already removed above
+                                // For game users, handle gracefully but don't delay cleanup
                             }
                         } catch (error) {
                             console.error('Error handling game cleanup on disconnect:', error);
@@ -1117,24 +1123,10 @@ io.on('connection', (socket) => {
                     }
                 });
             }
-            
-            // Don't immediately remove user - give them a chance to reconnect
-            // Mark as offline but keep in activeUsers for a while
-            if (user) {
-                user.isOnline = false;
-                user.disconnectedAt = Date.now();
-            }
-            
-            // Schedule user cleanup after 10 minutes of being offline
-            setTimeout(() => {
-                cleanupOfflineUser(userId);
-            }, 10 * 60 * 1000); // 10 minutes grace period
-            
-            // Remove from user sessions immediately
-            userSessions.delete(socket.id);
         }
         
         console.log(`Socket disconnected: ${socket.id} (reason: ${reason})`);
+    });
     });
 
     // Add reconnection handler

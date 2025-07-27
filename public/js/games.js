@@ -1562,12 +1562,14 @@ class GameManager {
                 ${this.renderGameStatusBar(gameSession)}
             </div>
             
-            <div class="game-interface" id="game-interface-${gameSession.id}">
-                ${this.renderGameInterface(gameSession)}
-            </div>
-            
-            <div class="game-players-sidebar">
-                ${this.renderGamePlayers(gameSession.players)}
+            <div class="game-main-content">
+                <div class="game-interface" id="game-interface-${gameSession.id}">
+                    ${this.renderGameInterface(gameSession)}
+                </div>
+                
+                <div class="game-players-sidebar">
+                    ${this.renderGamePlayers(gameSession.players)}
+                </div>
             </div>
         `;
     }

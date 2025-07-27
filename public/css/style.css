@@ -1,5 +1,5 @@
-/* Modern Google Fonts Import - Must be at top */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap');
+/* Modern Google Fonts Import - Enhanced Typography */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 
 /* CSS Reset & Base Styles */
 * {
@@ -9,43 +9,50 @@
 }
 
 :root {
-    /* 2025 Modern Color Palette - Clean & Playful */
-    --primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    --primary-solid: #6366f1;
+    /* 2025 Premium Color Palette - Sophisticated & Modern */
+    --primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --primary-solid: #667eea;
     --primary-light: #a5b4fc;
-    --primary-dark: #4f46e5;
-    --secondary: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
-    --secondary-solid: #ec4899;
-    --accent: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
-    --accent-solid: #06b6d4;
-    --success: #22c55e;
-    --warning: #f59e0b;
-    --error: #ef4444;
+    --primary-dark: #4338ca;
+    --secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --secondary-solid: #f093fb;
+    --accent: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --accent-solid: #4facfe;
+    --success: #06d6a0;
+    --warning: #ffd166;
+    --error: #f72585;
     
-    /* Playful accent colors */
-    --pink: #f472b6;
-    --purple: #a855f7;
-    --blue: #3b82f6;
-    --green: #10b981;
-    --orange: #f97316;
+    /* Rich accent colors */
+    --pink: #ff6b9d;
+    --purple: #c44569;
+    --blue: #3742fa;
+    --green: #2ed573;
+    --orange: #ff9500;
+    --teal: #26de81;
+    --indigo: #5f27cd;
     
-    /* Clean Modern Surfaces */
-    --glass-bg: rgba(255, 255, 255, 0.95);
-    --glass-border: rgba(255, 255, 255, 0.2);
-    --glass-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    --background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    /* Premium Surfaces with enhanced depth */
+    --glass-bg: rgba(255, 255, 255, 0.97);
+    --glass-border: rgba(255, 255, 255, 0.3);
+    --glass-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    --background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%);
     --surface: rgba(255, 255, 255, 1);
-    --surface-alt: rgba(248, 250, 252, 1);
-    --border: rgba(226, 232, 240, 0.8);
-    --card-bg: rgba(255, 255, 255, 0.8);
-    --card-hover: rgba(255, 255, 255, 0.95);
+    --surface-alt: rgba(248, 250, 252, 0.95);
+    --border: rgba(203, 213, 225, 0.6);
+    --card-bg: rgba(255, 255, 255, 0.9);
+    --card-hover: rgba(255, 255, 255, 1);
     
-    /* Modern Typography - Clean contrast */
-    --text-primary: #1e293b;
-    --text-secondary: #64748b;
+    /* Enhanced Typography - Premium contrast */
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
     --text-muted: #94a3b8;
     --text-white: #ffffff;
-    --text-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    --text-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    
+    /* Premium font stacks */
+    --font-primary: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-secondary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-accent: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     
     /* Enhanced Spacing & Design */
     --spacing-xs: 0.25rem;
@@ -71,9 +78,9 @@
     --shadow-hover: 0 12px 24px rgba(102, 126, 234, 0.25);
     --shadow-active: 0 4px 8px rgba(102, 126, 234, 0.2);
     
-    /* Modern Typography */
-    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-family-playful: 'Poppins', 'Inter', sans-serif;
+    /* Enhanced Typography System */
+    --font-family: var(--font-primary);
+    --font-family-playful: var(--font-accent);
     --font-size-xs: 0.75rem;
     --font-size-sm: 0.875rem;
     --font-size-base: 1rem;
@@ -81,6 +88,7 @@
     --font-size-xl: 1.25rem;
     --font-size-2xl: 1.5rem;
     --font-size-3xl: 2rem;
+    --font-size-4xl: 2.5rem;
     
     /* Animation & Transitions */
     --transition-fast: 0.15s ease;
@@ -91,17 +99,85 @@
 
 
 body {
-    font-family: var(--font-family);
+    font-family: var(--font-primary);
     background: var(--background);
     color: var(--text-primary);
     line-height: 1.6;
     font-size: var(--font-size-base);
+    font-weight: 400;
     min-height: 100vh;
     margin: 0;
     padding: 0;
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+}
+
+/* Enhanced Typography Hierarchy */
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-accent);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+h1 {
+    font-size: var(--font-size-4xl);
+    font-weight: 800;
+    background: var(--text-gradient);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+h2 {
+    font-size: var(--font-size-3xl);
+    font-weight: 700;
+}
+
+h3 {
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+}
+
+h4 {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+}
+
+p {
+    font-family: var(--font-secondary);
+    line-height: 1.7;
+    color: var(--text-secondary);
+}
+
+/* Enhanced Button Styles */
+button, .btn {
+    font-family: var(--font-primary);
+    font-weight: 600;
+    letter-spacing: 0.025em;
+    transition: all var(--transition-normal);
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: var(--text-white);
+    border: none;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+}
+
+/* Input field enhancements */
+input, textarea {
+    font-family: var(--font-secondary);
+    font-weight: 500;
 }
 
 /* App Container - Clean Modern Wrapper */
@@ -347,6 +423,7 @@ body {
     
     .welcome-content {
         max-width: 600px;
+    
     }
 }
 
