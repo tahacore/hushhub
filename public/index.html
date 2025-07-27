@@ -5,9 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HushHub - Connect Nearby</title>
     
+    <!-- Enhanced Font Loading with Critical Fallbacks -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Critical CSS for immediate rendering -->
+    <style>
+        /* Critical font fallbacks to prevent FOUT */
+        :root {
+            --font-primary: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            --font-secondary: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            --font-accent: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+        }
+        
+        /* Ensure fonts load with fallbacks */
+        body { font-family: var(--font-primary); }
+        h1, h2, h3, h4, h5, h6 { font-family: var(--font-accent); }
+        
+        /* Prevent FOUT */
+        .font-loading { font-display: swap; }
+    </style>
+    
+    <!-- Load Google Fonts with display=swap for better performance -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap"></noscript>
+    
     <!-- PWA Meta Tags -->
     <meta name="description" content="Connect anonymously with people nearby">
-    <meta name="theme-color" content="#6366f1">
+    <meta name="theme-color" content="#667eea">
     <link rel="manifest" href="/manifest.json">
     
     <!-- iOS PWA Support -->
@@ -15,8 +40,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="HushHub">
     
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="stylesheet" href="/css/games.css">
+    <!-- CSS with Enhanced Cache Busting -->
+    <link rel="stylesheet" href="/css/style.css?v=3.1&t=202507271200">
+    <link rel="stylesheet" href="/css/games.css?v=3.1&t=202507271200">
 </head>
 <body>
     <!-- App Container -->
@@ -257,6 +283,37 @@
 
     <!-- Scripts -->
     <script src="/socket.io/socket.io.js"></script>
+    
+    <!-- Font Loading Optimization -->
+    <script>
+        // Ensure fonts load properly and apply styles immediately
+        document.addEventListener('DOMContentLoaded', function() {
+            // Force CSS custom property refresh after font load
+            function refreshFonts() {
+                const root = document.documentElement;
+                root.style.setProperty('--font-primary', "'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif");
+                root.style.setProperty('--font-secondary', "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif");
+                root.style.setProperty('--font-accent', "'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif");
+                
+                // Force repaint
+                document.body.style.display = 'none';
+                document.body.offsetHeight; // Trigger reflow
+                document.body.style.display = '';
+            }
+            
+            // Check if fonts are loaded
+            if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(refreshFonts);
+            } else {
+                // Fallback for browsers without font loading API
+                setTimeout(refreshFonts, 100);
+            }
+            
+            // Additional refresh after a delay to ensure fonts are applied
+            setTimeout(refreshFonts, 500);
+        });
+    </script>
+    
     <script src="/js/geolocation.js"></script>
     <script src="/js/app.js"></script>
     <script src="/js/games.js"></script>

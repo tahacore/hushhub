@@ -55,10 +55,22 @@ app.use((req, res, next) => {
     if (NODE_ENV === 'production') {
         // Prevent caching of HTML, JS, and CSS files in production for immediate updates
         if (req.url.endsWith('.html') || req.url.endsWith('.js') || req.url.endsWith('.css') || req.url === '/') {
-            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, proxy-revalidate');
             res.setHeader('Pragma', 'no-cache');
             res.setHeader('Expires', '0');
+            res.setHeader('Surrogate-Control', 'no-store');
+            res.setHeader('X-Accel-Expires', '0');
         }
+        
+        // Force browser to revalidate all assets
+        res.setHeader('Vary', 'Accept-Encoding, User-Agent');
+        res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+    } else {
+        // Development mode - always prevent caching
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
     }
     next();
 });

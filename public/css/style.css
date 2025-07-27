@@ -49,10 +49,10 @@
     --text-white: #ffffff;
     --text-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     
-    /* Premium font stacks */
-    --font-primary: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --font-secondary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --font-accent: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    /* Premium font stacks with Google Fonts first, then system fallbacks */
+    --font-primary: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    --font-secondary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    --font-accent: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
     
     /* Enhanced Spacing & Design */
     --spacing-xs: 0.25rem;
@@ -1681,8 +1681,8 @@ input[type="text"]::placeholder, textarea::placeholder {
 @media (prefers-color-scheme: dark) {
     :root {
         --text-primary: #ffffff;
-        --text-secondary: #e2e8f0;
-        --text-muted: #94a3b8;
+        --text-secondary: #292929;
+        --text-muted: #292d32;
         --surface: rgba(30, 30, 46, 0.95);
         --surface-alt: rgba(30, 30, 46, 0.85);
         --glass-bg: rgba(30, 30, 46, 0.35);
